@@ -21,7 +21,7 @@ type Keyword struct {
 var (
 	keywords     = make(map[int]Keyword)
 	nextKeyWord  = 1
-	keywordsFile = "handlers\\maps\\mapsKeywords.json"
+	keywordsFile = "handlers/maps/mapsKeywords.json"
 )
 
 /*
