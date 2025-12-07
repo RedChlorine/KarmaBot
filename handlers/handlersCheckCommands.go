@@ -26,7 +26,7 @@ func CheckCommands(update *tgbotapi.Update) string {
 
 	switch command {
 	case "/start":
-		return "Welcome! This is KarmaBot!, ready to check your Karma :)"
+		return "Welcome! This is KarmaBot!, ready to check your Karma :)\n\nTo get started, run /help"
 
 	case "/help":
 		return "Available commands:\n/start - Displays the Welcome message\n/help  - Displays this message\n/addkeyword - Adds keywords that the bot looks for\n/deletekeyword - Removes a keyword by its ID#\n/listkeywords - Shows the current list of word the bot looks for."
