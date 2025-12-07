@@ -24,6 +24,9 @@ func CheckCommands(update *tgbotapi.Update) string {
 	// Remove possible @(botname) suffix
 	command = strings.SplitN(command, "@", 2)[0]
 
+	// Get user ID to check if isAdmin = TRUE
+	userID := update.Message.From.ID
+
 	switch command {
 	case "/start":
 		return "Welcome! This is KarmaBot!, ready to check your Karma :)\n\nTo get started, run /help"
@@ -32,6 +35,11 @@ func CheckCommands(update *tgbotapi.Update) string {
 		return "Available commands:\n/start - Displays the Welcome message\n/help  - Displays this message\n/addkeyword - Adds keywords that the bot looks for\n/deletekeyword - Removes a keyword by its ID#\n/listkeywords - Shows the current list of word the bot looks for."
 
 	case "/addkeyword":
+		// Check if sender is an admin
+		if !CheckAdminRights(userID) {
+			return "⛔ Permission Denied: You are not an admin."
+		}
+		//if admin - continue:
 		if len(parts) < 2 {
 			return "Usage: /addkeyword <regex pattern or word>"
 		}
@@ -39,12 +47,22 @@ func CheckCommands(update *tgbotapi.Update) string {
 		return AddKeyword(pattern, update)
 
 	case "/deletekeyword":
+		// Check if sender is an admin
+		if !CheckAdminRights(userID) {
+			return "⛔ Permission Denied: You are not an admin."
+		}
+		//if admin - continue:
 		if len(parts) < 2 {
 			return "Usage: /deletekeyword <id>"
 		}
 		return DeleteKeyword(parts[1])
 
 	case "/listkeywords":
+		// Check if sender is an admin
+		if !CheckAdminRights(userID) {
+			return "⛔ Permission Denied: You are not an admin."
+		}
+		//if admin - continue:
 		return ListKeywords()
 
 	default:
