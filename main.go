@@ -31,6 +31,11 @@ func main() { // Main function is the entry point of the program
 		log.Println("Warning: Could not load keywords file - keyword system may not function as intended:", err)
 	}
 
+	// Loads the reputation from disk from handlers/maps/mapsReputation.json
+	if err := handlers.LoadReputationFromFile(); err != nil {
+		log.Println("Warning: Could not load reputation file - Rep system may not function as intended:", err)
+	}
+
 	// Enables verbose debug output to the console
 	bot.Debug = true
 	log.Println("Bot is running and ready!") //console log if bot is running
@@ -55,6 +60,10 @@ func main() { // Main function is the entry point of the program
 
 			if reply != "" {
 				msg := tgbotapi.NewMessage(update.Message.Chat.ID, reply)
+
+				// This makes the bot actually REPLY (quote) the user's message
+				msg.ReplyToMessageID = update.Message.MessageID
+
 				bot.Send(msg)
 			}
 		}
