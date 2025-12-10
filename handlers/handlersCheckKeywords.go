@@ -49,9 +49,11 @@ func CheckMessageKeywords(update *tgbotapi.Update) string {
 		toUser := update.Message.ReplyToMessage.From
 
 		// Validation : Mitigate users incrementing their own rep or bot rep
-		if toUser.IsBot {
-			return ""
-		}
+		/*
+			if toUser.IsBot {
+				return ""
+			}
+		*/
 
 		if fromUser.ID == toUser.ID {
 			return fmt.Sprintf("⛔ @%s, you cannot increase your own reputation!", fromUser.UserName)

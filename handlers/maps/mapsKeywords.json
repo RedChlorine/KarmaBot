@@ -1,5 +1,10 @@
 [
   {
+    "id": 4,
+    "pattern": "thanks",
+    "added_by": "Meepus"
+  },
+  {
     "id": 1,
     "pattern": "thnx",
     "added_by": "LamentConfiguration0"
@@ -8,5 +13,10 @@
     "id": 2,
     "pattern": "Thnx",
     "added_by": "LamentConfiguration0"
+  },
+  {
+    "id": 3,
+    "pattern": "cool",
+    "added_by": "dex_01"
   }
 ]
