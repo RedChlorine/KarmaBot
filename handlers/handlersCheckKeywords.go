@@ -24,6 +24,55 @@ var (
 	keywordsFile = "handlers/maps/mapsKeywords.json"
 )
 
+// CheckMessageKeywords checks if a message contains a keyword and handles Reputation replies
+// Called from main.go to process all messages
+// SUB-CRITICAL FUNC
+func CheckMessageKeywords(update *tgbotapi.Update) string {
+	if update.Message == nil {
+		return ""
+	}
+
+	text := update.Message.Text
+
+	// Check if the message matches any of the defined keywords
+	matched := false
+	for _, keyword := range keywords {
+		if keyword.Regex.MatchString(text) {
+			matched = true
+			break
+		}
+	}
+
+	// IF matched == true && is a reply
+	if matched && update.Message.ReplyToMessage != nil {
+		fromUser := update.Message.From
+		toUser := update.Message.ReplyToMessage.From
+
+		// Validation : Mitigate users incrementing their own rep or bot rep
+		if toUser.IsBot {
+			return ""
+		}
+
+		if fromUser.ID == toUser.ID {
+			return fmt.Sprintf("⛔ @%s, you cannot increase your own reputation!", fromUser.UserName)
+		}
+
+		// UPDATE REPUTATION
+		newReputation, err := AddReputation(toUser.ID, toUser.UserName)
+		if err != nil {
+			return "ERROR: Could not update reputation database - please infrom an admin."
+		}
+
+		// Create a response string - "@user your rep +1, current rep[someRepInt]"
+		userLabel := toUser.FirstName
+		if toUser.UserName != "" {
+			userLabel = "@" + toUser.UserName
+		}
+		return fmt.Sprintf("🌟 %s +1 Reputation!\nTotal Rep: %d", userLabel, newReputation)
+	}
+	return ""
+}
+
 /*
 * Called from handlersCheckCommands - Adds a keyword and assigns the added and an ID
 * /addkeyword command
@@ -106,20 +155,6 @@ func ListKeywords() string {
 		fmt.Fprintf(&keywordList, "#%d %s (by @%s)\n", id, kw.Pattern, kw.AddedBy)
 	}
 	return keywordList.String()
-}
-
-// Called from main loop for normal messages
-func CheckMessageKeywords(update *tgbotapi.Update) string {
-	if update.Message == nil {
-		return ""
-	}
-	text := update.Message.Text
-	for _, kw := range keywords {
-		if kw.Regex.MatchString(text) {
-			return "Great"
-		}
-	}
-	return ""
 }
 
 // Saves keywords to handlers/maps/mapsKeywords.json for persistance
