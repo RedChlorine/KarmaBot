@@ -30,6 +30,7 @@ func CheckCommands(update *tgbotapi.Update) string {
 	userID := update.Message.From.ID
 
 	switch command {
+
 	// --- COMMON COMMANDS ---
 	case "/start":
 		return "Welcome! This is KarmaBot!, ready to check your Karma :)\n\nTo get started, run /help"
@@ -71,9 +72,11 @@ func CheckCommands(update *tgbotapi.Update) string {
 
 	// --- REPUTATION COMMANDS ---
 	case "/checkrep":
+		// /checkrep [optional: @username]
+		// Returns the user's current reputation
 		targetID, targetName := helperResolveTarget(update, parts)
 
-		// If ID is -1, the target user couldnt be found via the rep map or reply-to
+		// If is -1, the target user couldnt be found via the rep map or reply-to
 		score, _ := GetReputation(targetID)
 
 		// If the name is "Unknown", try to use the name from the input
@@ -82,10 +85,69 @@ func CheckCommands(update *tgbotapi.Update) string {
 		}
 		return fmt.Sprintf("📊 Reputation for %s: %d", targetName, score)
 
+	case "/setrep":
+		// /setrep <amount> (Reply or @Username)
+		// Foreces a user's reputation to be a set value
+		if !CheckAdminRights(userID) {
+			return "⛔ Permission Denied.  You are not an admin."
+		}
+		if len(parts) < 2 {
+			return "Usage: /setrep <amount> (reply to user)"
+		}
+
+		// Get target info
+		targetID, targetName := helperResolveTarget(update, parts)
+
+		//parse the <amount>
+		amountString := parts[len(parts)-1]
+		amount, err := strconv.Atoi(amountString)
+		if err != nil {
+			return "Error: No user specified (Reply or @User)."
+		}
+
+		// Set new Rep
+		newReputation, _ := SetReputation(targetID, targetName, amount)
+		return fmt.Sprintf("✅ Set %s's reputation to %d.", targetName, newReputation)
+
+	case "/resetrep":
+		// Forces the user's rep to zero
+		// Check if sender is an admin
+		if !CheckAdminRights(userID) {
+			return "⛔ Permission Denied: You are not an admin."
+		}
+
+		// Get target info
+		targetID, targetName := helperResolveTarget(update, parts)
+		if targetID == 0 {
+			return "Error: No user specified."
+		}
+
+		SetReputation(targetID, targetName, 0)
+		newReputation, _ := GetReputation(targetID)
+		return fmt.Sprintf("🔄 Reset %s's reputation.\nReputation: %d", targetName, newReputation)
+
+	case "/decrement":
+		// Decrements a user's rep by 1
+		// Check if sender is an admin
+		if !CheckAdminRights(userID) {
+			return "⛔ Permission Denied: You are not an admin."
+		}
+
+		// Get target info
+		targetID, targetName := helperResolveTarget(update, parts)
+		if targetID == 0 {
+			return "Error: No user specified."
+		}
+
+		newReputation, _ := DecreaseReputation(targetID, targetName)
+		return fmt.Sprintf("🔻 Decreased %s's rep by 1. Total: %d", targetName, newReputation)
+
 	default:
 		return "Sorry, I did not recognise that command, try running /help."
 	}
 }
+
+// --- HELPERS ---
 
 // Helper: Determines who the command is targeting
 // Priority: 1. Reply User, 2. @Mention or ID in args, 3. Self

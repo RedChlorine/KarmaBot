@@ -1,5 +1,30 @@
 [
   {
+    "id": 2,
+    "pattern": "Thnx",
+    "added_by": "LamentConfiguration0"
+  },
+  {
+    "id": 3,
+    "pattern": "cool",
+    "added_by": "dex_01"
+  },
+  {
+    "id": 6,
+    "pattern": "awesome",
+    "added_by": "Magpie2024B"
+  },
+  {
+    "id": 7,
+    "pattern": "wise-ass",
+    "added_by": "Magpie2024B"
+  },
+  {
+    "id": 5,
+    "pattern": "Thanx",
+    "added_by": "LamentConfiguration0"
+  },
+  {
     "id": 4,
     "pattern": "thanks",
     "added_by": "Meepus"
@@ -10,13 +35,13 @@
     "added_by": "LamentConfiguration0"
   },
   {
-    "id": 2,
-    "pattern": "Thnx",
+    "id": 9,
+    "pattern": "/awesome/i",
     "added_by": "LamentConfiguration0"
   },
   {
-    "id": 3,
-    "pattern": "cool",
-    "added_by": "dex_01"
+    "id": 10,
+    "pattern": "😜",
+    "added_by": "Magpie2024B"
   }
 ]

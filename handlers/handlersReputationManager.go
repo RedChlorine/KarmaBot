@@ -94,7 +94,7 @@ func GetReputation(userID int64) (int, string) {
 		return user.UserRep, user.UserName
 	}
 
-	return -1, "ERROR: Reputation of User not found"
+	return 0, "ERROR: Reputation of User not found"
 }
 
 // saveReputationToFile saves the map to JSON
@@ -147,5 +147,5 @@ func HelperFindUserID(username string) int64 {
 			return user.UserID
 		}
 	}
-	return -1
+	return 0
 }
