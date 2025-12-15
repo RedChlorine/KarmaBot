@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"os"
+	"strings"
 	"sync"
 )
 
@@ -43,6 +44,59 @@ func AddReputation(userID int64, username string) (int, error) {
 	return reputationMap[userID].UserRep, saveReputationToFile()
 }
 
+// DecreaseReputation removes 1 rep (Command: /decrep)
+func DecreaseReputation(userID int64, username string) (int, error) {
+	repMutex.Lock()
+	defer repMutex.Unlock()
+
+	if userRep, ok := reputationMap[userID]; ok {
+		userRep.UserRep--
+		if username != "" {
+			userRep.UserName = username
+		}
+	} else {
+		// If user doesn't exist, start them at -1
+		reputationMap[userID] = &UserReputation{
+			UserID:   userID,
+			UserName: username,
+			UserRep:  -1,
+		}
+	}
+	return reputationMap[userID].UserRep, saveReputationToFile()
+}
+
+// SetReputation forces a specific score (Command: /setrep)
+func SetReputation(userID int64, username string, val int) (int, error) {
+	repMutex.Lock()
+	defer repMutex.Unlock()
+
+	if userRep, ok := reputationMap[userID]; ok {
+		userRep.UserRep = val
+		if username != "" {
+			userRep.UserName = username
+		}
+	} else {
+		reputationMap[userID] = &UserReputation{
+			UserID:   userID,
+			UserName: username,
+			UserRep:  val,
+		}
+	}
+	return val, saveReputationToFile()
+}
+
+// GetReputation returns the score and name of a user. Returns -1 if not found.
+func GetReputation(userID int64) (int, string) {
+	repMutex.Lock()
+	defer repMutex.Unlock()
+
+	if user, ok := reputationMap[userID]; ok {
+		return user.UserRep, user.UserName
+	}
+
+	return -1, "ERROR: Reputation of User not found"
+}
+
 // saveReputationToFile saves the map to JSON
 func saveReputationToFile() error {
 	list := make([]UserReputation, 0, len(reputationMap))
@@ -79,4 +133,19 @@ func LoadReputationFromFile() error {
 		reputationMap[list[i].UserID] = &list[i]
 	}
 	return nil
+}
+
+/*********************HELPERS**************************/
+
+func HelperFindUserID(username string) int64 {
+	repMutex.Lock()
+	defer repMutex.Unlock()
+
+	cleanName := strings.TrimPrefix(username, "@")
+	for _, user := range reputationMap {
+		if strings.EqualFold(user.UserName, cleanName) {
+			return user.UserID
+		}
+	}
+	return -1
 }
