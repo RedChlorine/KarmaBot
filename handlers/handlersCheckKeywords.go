@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -148,14 +149,27 @@ func ListKeywords() string {
 		return "Error: No keywords have been defined."
 	}
 
-	var keywordList strings.Builder
+	// Convert map to slice for sorting
+	var list []Keyword
 
+	for _, kw := range keywords {
+		list = append(list, kw)
+	}
+
+	// Sort the slice: ID Descending (Highest to Lowest)
+	sort.Slice(list, func(i, j int) bool {
+		return list[i].ID > list[j].ID
+	})
+
+	// Build the output string
+	var keywordList strings.Builder
 	keywordList.WriteString("Current keywords:\n")
 
-	//generates list - #id of keyword, pattern of keyword, the @ of the adder
-	for id, kw := range keywords {
-		fmt.Fprintf(&keywordList, "#%d %s (by @%s)\n", id, kw.Pattern, kw.AddedBy)
+	// Output keyword list
+	for _, kw := range list {
+		fmt.Fprintf(&keywordList, "#%d %s (by @%s)\n", kw.ID, kw.Pattern, kw.AddedBy)
 	}
+
 	return keywordList.String()
 }
 
