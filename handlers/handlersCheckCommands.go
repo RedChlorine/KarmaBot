@@ -36,7 +36,7 @@ func CheckCommands(update *tgbotapi.Update) string {
 		return "Welcome! This is KarmaBot!, ready to check your Karma :)\n\nTo get started, run /help"
 
 	case "/help":
-		return "Available commands:\n/start - Displays the Welcome message\n/help  - Displays this message\n/addkeyword - Adds keywords that the bot looks for\n/deletekeyword - Removes a keyword by its ID#\n/listkeywords - Shows the current list of word the bot looks for."
+		return "Available commands:\n/start - Displays the Welcome message\n/help  - Displays this message\n/addkeyword - Adds keywords that the bot looks for\n/deletekeyword - Removes a keyword by its ID#\n/listkeywords - Shows the current list of word the bot looks for\n/checkrep - Displays the current user's reputation\n/setrep - Forces a user's rep to be set to the value you providen\n/resetrep - Resets a user's reputation to zero\n/decrement - Reduces a user's reputation by one"
 
 	// --- KEYWORD COMMANDS ---
 	case "/addkeyword":
