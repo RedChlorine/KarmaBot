@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"log"
 	"os"
 	"strings"
 	"sync"
@@ -27,21 +26,23 @@ func AddReputation(userID int64, username string) (int, error) {
 	defer repMutex.Unlock()
 
 	//DEBUG
-	log.Printf("\nADDREP USERNAME: %s", username)
+	//log.Printf("\nADDREP USERNAME: %s", username)
 
 	// If user exists, increment score - prevents added rep to deleted accounts
 	if userReputation, ok := reputationMap[userID]; ok {
 		userReputation.UserRep++
 
+		// -- DEPRICATED --
 		// Update username in case they change it
-		if username != "" {
+		/*if username != "" {
 			userReputation.UserName = username
-		}
+		}*/
+
 	} else {
 		// Create new user entry to file
 		reputationMap[userID] = &UserReputation{
 			UserID:   userID,
-			UserName: "@" + username,
+			UserName: ensureAtPrefix(username),
 			UserRep:  1,
 		}
 	}
@@ -52,18 +53,21 @@ func AddReputation(userID int64, username string) (int, error) {
 func DecreaseReputation(userID int64, username string) (int, error) {
 	repMutex.Lock()
 	defer repMutex.Unlock()
-	log.Printf("\nDECREP USERNAME: %s", username)
+	//log.Printf("\nDECREP USERNAME: %s", username)
 
 	if userRep, ok := reputationMap[userID]; ok {
 		userRep.UserRep--
-		if username != "" {
+
+		// -- DEPRICATED --
+		/*if username != "" {
 			userRep.UserName = username
-		}
+		}*/
+
 	} else {
 		// If user doesn't exist, start them at -1
 		reputationMap[userID] = &UserReputation{
 			UserID:   userID,
-			UserName: "@" + username,
+			UserName: ensureAtPrefix(username),
 			UserRep:  -1,
 		}
 	}
@@ -74,17 +78,20 @@ func DecreaseReputation(userID int64, username string) (int, error) {
 func SetReputation(userID int64, username string, val int) (int, error) {
 	repMutex.Lock()
 	defer repMutex.Unlock()
-	log.Printf("\nSETREP USERNAME: %s", username)
+	//log.Printf("\nSETREP USERNAME: %s", username)
 
 	if userRep, ok := reputationMap[userID]; ok {
 		userRep.UserRep = val
-		if username != "" {
+
+		// -- DEPRICATED --
+		/*if username != "" {
 			userRep.UserName = username
-		}
+		}*/
+
 	} else {
 		reputationMap[userID] = &UserReputation{
 			UserID:   userID,
-			UserName: "@" + username,
+			UserName: ensureAtPrefix(username),
 			UserRep:  val,
 		}
 	}
@@ -167,4 +174,13 @@ func HelperFindUserID(username string) int64 {
 	}
 
 	return 0
+}
+
+// Helper: Ensure a string starts with exactly one @
+// Used when CREATING new users to prevent "@@Username" or "Username" (no @)
+func ensureAtPrefix(name string) string {
+	if strings.HasPrefix(name, "@") {
+		return name
+	}
+	return "@" + name
 }
