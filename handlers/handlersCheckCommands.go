@@ -36,7 +36,7 @@ func CheckCommands(update *tgbotapi.Update) string {
 		return "Welcome! This is KarmaBot!, ready to check your Karma :)\n\nTo get started, run /help"
 
 	case "/help":
-		return "Available commands:\n/start - Displays the Welcome message\n/help  - Displays this message\n/addkeyword - Adds keywords that the bot looks for\n/deletekeyword - Removes a keyword by its ID#\n/listkeywords - Shows the current list of word the bot looks for\n/checkrep - Displays the current user's reputation\n/setrep - Forces a user's rep to be set to the value you providen\n/resetrep - Resets a user's reputation to zero\n/decrement - Reduces a user's reputation by one"
+		return "Available commands:\n/start - Displays the Welcome message\n/help  - Displays this message\n/addkeyword - Adds keywords that the bot looks for\n/deletekeyword - Removes a keyword by its ID#\n/listkeywords - Shows the current list of word the bot looks for\n/checkrep - Displays the current user's reputation\n/setrep - Forces a user's rep to be set to the value you provide\n/resetrep - Resets a user's reputation to zero\n/decrement - Reduces a user's reputation by one"
 
 	// --- KEYWORD COMMANDS ---
 	case "/addkeyword":
@@ -91,12 +91,18 @@ func CheckCommands(update *tgbotapi.Update) string {
 		if !CheckAdminRights(userID) {
 			return "⛔ Permission Denied.  You are not an admin."
 		}
+
 		if len(parts) < 2 {
 			return "Usage: /setrep <amount> (reply to user)"
 		}
 
 		// Get target info
 		targetID, targetName := helperResolveTarget(update, parts)
+		//log.Printf("\n\nHANDLERS - COMMANDS - SETREP\nTARGRET_ID:%d\nTARGET_NAME:%s", targetID, targetName)
+
+		if targetID == 0 {
+			return fmt.Sprintf("❌ Error: User '%s' not found in Reputation map. The bot can only manage users who have spoken before.", targetName)
+		}
 
 		//parse the <amount>
 		amountString := parts[len(parts)-1]
@@ -153,24 +159,32 @@ func CheckCommands(update *tgbotapi.Update) string {
 // Priority: 1. Reply User, 2. @Mention or ID in args, 3. Self
 func helperResolveTarget(update *tgbotapi.Update, args []string) (int64, string) {
 	// 1. Check for Reply
-	if update.Message.ReplyToMessage != nil {
-		user := update.Message.ReplyToMessage.From
-		return user.ID, user.FirstName
-	}
+	//if update.Message.ReplyToMessage != nil {
+	//	user := update.Message.ReplyToMessage.From
+	//	/*******************DEBUG INFO**********************/
+	//	log.Printf("User used a reply\nUSER:%d\nFIRSTNAME:%s", user.ID, user.UserName)
+	//	return user.ID, user.UserName
+	//}
 
 	// 2. Check for Arguments (@User)
-	// We skip the last arg if it's a number (for /setrep 100 cases)
 	if len(args) > 1 {
 		possibleName := args[1]
-		// If arg is NOT a number (it's likely a name)
+		/*******************DEBUG INFO**********************/
+		//log.Printf("\n\nHELPER - RESOLVE_TARGET\nFound possible Name: %s", possibleName)
+
+		// Check if arg is a Name (not a number)
+		// We use Atoi to make sure we don't catch "/setrep 100" as a username
 		if _, err := strconv.Atoi(possibleName); err != nil {
+
 			id := HelperFindUserID(possibleName)
-			if id != 0 {
-				return id, possibleName
-			}
+
+			//log.Printf("\n\nHELPER - RESOLVE_TARGET\nID of possible name: %d\nUSERNAME of possible name: %s", id, possibleName)
+
+			return id, possibleName
 		}
 	}
 
 	// 3. Default to Self (Sender)
-	return update.Message.From.ID, update.Message.From.FirstName
+	// Only reached if: No Reply AND (No args OR Arg was a number)
+	return update.Message.From.ID, update.Message.From.UserName
 }

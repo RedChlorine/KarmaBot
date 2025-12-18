@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"log"
 	"os"
 	"strings"
 	"sync"
@@ -25,6 +26,9 @@ func AddReputation(userID int64, username string) (int, error) {
 	repMutex.Lock()
 	defer repMutex.Unlock()
 
+	//DEBUG
+	log.Printf("\nADDREP USERNAME: %s", username)
+
 	// If user exists, increment score - prevents added rep to deleted accounts
 	if userReputation, ok := reputationMap[userID]; ok {
 		userReputation.UserRep++
@@ -37,17 +41,18 @@ func AddReputation(userID int64, username string) (int, error) {
 		// Create new user entry to file
 		reputationMap[userID] = &UserReputation{
 			UserID:   userID,
-			UserName: username,
+			UserName: "@" + username,
 			UserRep:  1,
 		}
 	}
 	return reputationMap[userID].UserRep, saveReputationToFile()
 }
 
-// DecreaseReputation removes 1 rep (Command: /decrep)
+// DecreaseReputation removes 1 rep (Command: /decrement)
 func DecreaseReputation(userID int64, username string) (int, error) {
 	repMutex.Lock()
 	defer repMutex.Unlock()
+	log.Printf("\nDECREP USERNAME: %s", username)
 
 	if userRep, ok := reputationMap[userID]; ok {
 		userRep.UserRep--
@@ -58,7 +63,7 @@ func DecreaseReputation(userID int64, username string) (int, error) {
 		// If user doesn't exist, start them at -1
 		reputationMap[userID] = &UserReputation{
 			UserID:   userID,
-			UserName: username,
+			UserName: "@" + username,
 			UserRep:  -1,
 		}
 	}
@@ -69,6 +74,7 @@ func DecreaseReputation(userID int64, username string) (int, error) {
 func SetReputation(userID int64, username string, val int) (int, error) {
 	repMutex.Lock()
 	defer repMutex.Unlock()
+	log.Printf("\nSETREP USERNAME: %s", username)
 
 	if userRep, ok := reputationMap[userID]; ok {
 		userRep.UserRep = val
@@ -78,11 +84,11 @@ func SetReputation(userID int64, username string, val int) (int, error) {
 	} else {
 		reputationMap[userID] = &UserReputation{
 			UserID:   userID,
-			UserName: username,
+			UserName: "@" + username,
 			UserRep:  val,
 		}
 	}
-	return val, saveReputationToFile()
+	return reputationMap[userID].UserRep, saveReputationToFile()
 }
 
 // GetReputation returns the score and name of a user. Returns -1 if not found.
@@ -138,14 +144,27 @@ func LoadReputationFromFile() error {
 /*********************HELPERS**************************/
 
 func HelperFindUserID(username string) int64 {
+	//log.Printf("\nENTERED HelperFindUserID\n\nHELPER - FIND_USER_ID\nUSERNAME PASSED: %s", username)
 	repMutex.Lock()
 	defer repMutex.Unlock()
 
-	cleanName := strings.TrimPrefix(username, "@")
+	target := username
+	//log.Printf("\nHELPER - FIND_USER_ID\nTARGET: %s", target)
+	//IF TARGET DOESNT HAVE AN @, THEN FORCE ADD AN @
+	if !strings.HasPrefix(target, "@") {
+		target = "@" + target
+		//log.Printf("\n\nHELPER - FIND_USER_ID\nTARGET DID NOT HAVE AN @ SUFFIX - ADDED @: %s", target)
+	}
+
 	for _, user := range reputationMap {
-		if strings.EqualFold(user.UserName, cleanName) {
+
+		//log.Printf("\n\nHELPER - FIND_USER_ID\nLOGGING RANGE user VS target\nUSER:%s\nTARGET:%s\n", user.UserName, target)
+
+		if strings.EqualFold(user.UserName, target) {
+			//log.Printf("\n\nHELPER - FIND_USER_ID\nUSER ID FROM SAN TARGET: %d", user.UserID)
 			return user.UserID
 		}
 	}
+
 	return 0
 }
