@@ -144,21 +144,22 @@ func CheckCommands(update *tgbotapi.Update) string {
 		newReputation, _ := GetReputation(targetID)
 		return fmt.Sprintf("🔄 Reset %s's reputation.\nReputation: %d", targetName, newReputation)
 
-	case "/decrement":
-		// Decrements a user's rep by 1
-		// Check if sender is an admin
-		if !CheckAdminRights(userID) {
-			return "⛔ Permission Denied: You are not an admin."
-		}
+	// -- DEPRICATED -- //
+	/*case "/decrement":
+	// Decrements a user's rep by 1
+	// Check if sender is an admin
+	if !CheckAdminRights(userID) {
+		return "⛔ Permission Denied: You are not an admin."
+	}
 
-		// Get target info
-		targetID, targetName := helperResolveTarget(update, parts)
-		if targetID == 0 {
-			return "Error: No user specified."
-		}
+	// Get target info
+	targetID, targetName := helperResolveTarget(update, parts)
+	if targetID == 0 {
+		return "Error: No user specified."
+	}
 
-		newReputation, _ := DecreaseReputation(targetID, targetName)
-		return fmt.Sprintf("🔻 Decreased %s's rep by 1. Total: %d", targetName, newReputation)
+	newReputation, _ := DecreaseReputation(targetID, targetName)
+	return fmt.Sprintf("🔻 Decreased %s's rep by 1. Total: %d", targetName, newReputation)*/
 
 	default:
 		return "Sorry, I did not recognise that command, try running /help."
