@@ -1,5 +1,15 @@
 [
   {
+    "user_id": 7321383690,
+    "username": "@Magpie2024B",
+    "user_reputation": 100
+  },
+  {
+    "user_id": 309157367,
+    "username": "@dex_01",
+    "user_reputation": 0
+  },
+  {
     "user_id": 1088768470,
     "username": "@LamentConfiguration0",
     "user_reputation": 0
@@ -12,16 +22,6 @@
   {
     "user_id": 731344916,
     "username": "@Meepus",
-    "user_reputation": 0
-  },
-  {
-    "user_id": 7321383690,
-    "username": "@Magpie2024B",
-    "user_reputation": 0
-  },
-  {
-    "user_id": 309157367,
-    "username": "@dex_01",
     "user_reputation": 0
   }
 ]

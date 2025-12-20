@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 )
@@ -25,9 +27,6 @@ func AddReputation(userID int64, username string) (int, error) {
 	repMutex.Lock()
 	defer repMutex.Unlock()
 
-	//DEBUG
-	//log.Printf("\nADDREP USERNAME: %s", username)
-
 	// If user exists, increment score - prevents added rep to deleted accounts
 	if userReputation, ok := reputationMap[userID]; ok {
 		userReputation.UserRep++
@@ -42,7 +41,7 @@ func AddReputation(userID int64, username string) (int, error) {
 		// Create new user entry to file
 		reputationMap[userID] = &UserReputation{
 			UserID:   userID,
-			UserName: ensureAtPrefix(username),
+			UserName: helperEnsureAtPrefix(username),
 			UserRep:  1,
 		}
 	}
@@ -53,7 +52,6 @@ func AddReputation(userID int64, username string) (int, error) {
 func DecreaseReputation(userID int64, username string) (int, error) {
 	repMutex.Lock()
 	defer repMutex.Unlock()
-	//log.Printf("\nDECREP USERNAME: %s", username)
 
 	if userRep, ok := reputationMap[userID]; ok {
 		userRep.UserRep--
@@ -67,7 +65,7 @@ func DecreaseReputation(userID int64, username string) (int, error) {
 		// If user doesn't exist, start them at -1
 		reputationMap[userID] = &UserReputation{
 			UserID:   userID,
-			UserName: ensureAtPrefix(username),
+			UserName: helperEnsureAtPrefix(username),
 			UserRep:  -1,
 		}
 	}
@@ -91,7 +89,7 @@ func SetReputation(userID int64, username string, val int) (int, error) {
 	} else {
 		reputationMap[userID] = &UserReputation{
 			UserID:   userID,
-			UserName: ensureAtPrefix(username),
+			UserName: helperEnsureAtPrefix(username),
 			UserRep:  val,
 		}
 	}
@@ -108,6 +106,52 @@ func GetReputation(userID int64) (int, string) {
 	}
 
 	return 0, "ERROR: Reputation of User not found"
+}
+
+func GetTopReputation() string {
+	repMutex.Lock()
+	defer repMutex.Unlock()
+
+	// Temp struct for sorting
+	type userEntry struct {
+		Name       string
+		ID         int64
+		Reputation int
+	}
+
+	var leaderboard []userEntry
+
+	// Convert Map to Slice for sorting
+	for _, user := range reputationMap {
+		leaderboard = append(leaderboard, userEntry{Name: user.UserName, ID: user.UserID, Reputation: user.UserRep})
+	}
+
+	// Sort algorithm - by score (Descending Order)
+	sort.Slice(leaderboard, func(i, j int) bool {
+		return leaderboard[i].Reputation > leaderboard[j].Reputation
+	})
+
+	// Build the leaderboard string
+	var board strings.Builder
+	board.WriteString("🏆 **Reputation Leaderboard** 🏆\n\n")
+
+	// Determine the amount of users to display if <= 10
+	topCount := 10
+	if len(leaderboard) < topCount {
+		topCount = len(leaderboard)
+	}
+
+	if topCount == 0 {
+		return "WARNING: No Users recorded on the Leaderboard yet"
+	}
+
+	for i := 0; i < topCount; i++ {
+		entry := leaderboard[i]
+		// Format of Leaderboard - "1. User: @User, ID:id, - Reputation"
+		fmt.Fprintf(&board, "%d. %s | %d\n", i+1, entry.Name, entry.Reputation)
+	}
+	return board.String()
+
 }
 
 // saveReputationToFile saves the map to JSON
@@ -151,24 +195,18 @@ func LoadReputationFromFile() error {
 /*********************HELPERS**************************/
 
 func HelperFindUserID(username string) int64 {
-	//log.Printf("\nENTERED HelperFindUserID\n\nHELPER - FIND_USER_ID\nUSERNAME PASSED: %s", username)
+
 	repMutex.Lock()
 	defer repMutex.Unlock()
 
 	target := username
-	//log.Printf("\nHELPER - FIND_USER_ID\nTARGET: %s", target)
-	//IF TARGET DOESNT HAVE AN @, THEN FORCE ADD AN @
+
 	if !strings.HasPrefix(target, "@") {
 		target = "@" + target
-		//log.Printf("\n\nHELPER - FIND_USER_ID\nTARGET DID NOT HAVE AN @ SUFFIX - ADDED @: %s", target)
 	}
 
 	for _, user := range reputationMap {
-
-		//log.Printf("\n\nHELPER - FIND_USER_ID\nLOGGING RANGE user VS target\nUSER:%s\nTARGET:%s\n", user.UserName, target)
-
 		if strings.EqualFold(user.UserName, target) {
-			//log.Printf("\n\nHELPER - FIND_USER_ID\nUSER ID FROM SAN TARGET: %d", user.UserID)
 			return user.UserID
 		}
 	}
@@ -178,7 +216,7 @@ func HelperFindUserID(username string) int64 {
 
 // Helper: Ensure a string starts with exactly one @
 // Used when CREATING new users to prevent "@@Username" or "Username" (no @)
-func ensureAtPrefix(name string) string {
+func helperEnsureAtPrefix(name string) string {
 	if strings.HasPrefix(name, "@") {
 		return name
 	}

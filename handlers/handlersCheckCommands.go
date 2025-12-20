@@ -36,7 +36,7 @@ func CheckCommands(update *tgbotapi.Update) string {
 		return "Welcome! This is KarmaBot!, ready to check your Karma :)\n\nTo get started, run /help"
 
 	case "/help":
-		return "Available commands:\n/start - Displays the Welcome message\n/help  - Displays this message\n/addkeyword - Adds keywords that the bot looks for\n/addbadword - Adds  negative keywords that the bot decrements rep for\n/deletekeyword - Removes a keyword by its ID#\n/listkeywords - Shows the current list of word the bot looks for\n/checkrep - Displays the current user's reputation\n/setrep - Forces a user's rep to be set to the value you provide\n/resetrep - Resets a user's reputation to zero\n/decrement - Reduces a user's reputation by one"
+		return "Available commands:\n/start - Displays the Welcome message\n/help  - Displays this message\n/top - View the Top 10 Leaderboard 🏆\n/addkeyword - Adds keywords that the bot looks for\n/addbadword - Adds  negative keywords that the bot decrements rep for\n/deletekeyword - Removes a keyword by its ID#\n/listkeywords - Shows the current list of word the bot looks for\n/checkrep - Displays the current user's reputation\n/setrep - Forces a user's rep to be set to the value you provide\n/resetrep - Resets a user's reputation to zero\n/decrement - Reduces a user's reputation by one"
 
 	// --- KEYWORD COMMANDS ---
 	case "/addkeyword":
@@ -143,6 +143,10 @@ func CheckCommands(update *tgbotapi.Update) string {
 		SetReputation(targetID, targetName, 0)
 		newReputation, _ := GetReputation(targetID)
 		return fmt.Sprintf("🔄 Reset %s's reputation.\nReputation: %d", targetName, newReputation)
+
+	case "/top":
+		// Returns up to 10 with the highest rep in the DBs
+		return GetTopReputation()
 
 	// -- DEPRICATED -- //
 	/*case "/decrement":
