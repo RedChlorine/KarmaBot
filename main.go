@@ -37,7 +37,7 @@ func main() { // Main function is the entry point of the program
 	}
 
 	// Enables verbose debug output to the console
-	//bot.Debug = true
+	bot.Debug = true
 	log.Println("Bot is running and ready!") //console log if bot is running
 
 	// Creates a new Update configuration object, starting from the earliest possible update

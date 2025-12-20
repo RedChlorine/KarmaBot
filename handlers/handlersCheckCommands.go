@@ -36,7 +36,7 @@ func CheckCommands(update *tgbotapi.Update) string {
 		return "Welcome! This is KarmaBot!, ready to check your Karma :)\n\nTo get started, run /help"
 
 	case "/help":
-		return "Available commands:\n/start - Displays the Welcome message\n/help  - Displays this message\n/addkeyword - Adds keywords that the bot looks for\n/deletekeyword - Removes a keyword by its ID#\n/listkeywords - Shows the current list of word the bot looks for\n/checkrep - Displays the current user's reputation\n/setrep - Forces a user's rep to be set to the value you provide\n/resetrep - Resets a user's reputation to zero\n/decrement - Reduces a user's reputation by one"
+		return "Available commands:\n/start - Displays the Welcome message\n/help  - Displays this message\n/addkeyword - Adds keywords that the bot looks for\n/addbadword - Adds  negative keywords that the bot decrements rep for\n/deletekeyword - Removes a keyword by its ID#\n/listkeywords - Shows the current list of word the bot looks for\n/checkrep - Displays the current user's reputation\n/setrep - Forces a user's rep to be set to the value you provide\n/resetrep - Resets a user's reputation to zero\n/decrement - Reduces a user's reputation by one"
 
 	// --- KEYWORD COMMANDS ---
 	case "/addkeyword":
@@ -50,6 +50,18 @@ func CheckCommands(update *tgbotapi.Update) string {
 		}
 		pattern := strings.Join(parts[1:], " ")
 		return AddKeyword(pattern, update)
+
+	case "/addbadword":
+		// Check if sender is an admin
+		if !CheckAdminRights(userID) {
+			return "⛔ Permission Denied: You are not an admin."
+		}
+		//if admin - continue:
+		if len(parts) < 2 {
+			return "Usage: /addkeyword <regex pattern or word>"
+		}
+		pattern := strings.Join(parts[1:], " ")
+		return AddNegativeKeyword(pattern, update)
 
 	case "/deletekeyword":
 		// Check if sender is an admin

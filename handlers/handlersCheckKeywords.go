@@ -13,10 +13,11 @@ import (
 )
 
 type Keyword struct {
-	ID      int            `json:"id"`
-	Pattern string         `json:"pattern"`
-	Regex   *regexp.Regexp `json:"-"`
-	AddedBy string         `json:"added_by"`
+	ID         int            `json:"id"`
+	Pattern    string         `json:"pattern"`
+	IsNegative bool           `json:"is_negative"`
+	Regex      *regexp.Regexp `json:"-"`
+	AddedBy    string         `json:"added_by"`
 }
 
 var (
@@ -36,10 +37,12 @@ func CheckMessageKeywords(update *tgbotapi.Update) string {
 	text := update.Message.Text
 
 	// Check if the message matches any of the defined keywords
+	var matchedKeyword Keyword // Stores the keyword for processing
 	matched := false
 	for _, keyword := range keywords {
 		if keyword.Regex.MatchString(text) {
 			matched = true
+			matchedKeyword = keyword
 			break
 		}
 	}
@@ -49,55 +52,74 @@ func CheckMessageKeywords(update *tgbotapi.Update) string {
 		fromUser := update.Message.From
 		toUser := update.Message.ReplyToMessage.From
 
-		// Validation : Mitigate users incrementing their own rep or bot rep
-		/*
-			if toUser.IsBot {
-				return ""
-			}
-		*/
-
+		// GUARD: Prevents user from altering their own rep
 		if fromUser.ID == toUser.ID {
 			return fmt.Sprintf("⛔ @%s, you cannot increase your own reputation!", fromUser.UserName)
 		}
 
-		// UPDATE REPUTATION
-		newReputation, err := AddReputation(toUser.ID, toUser.UserName)
-		if err != nil {
-			return "ERROR: Could not update reputation database - please infrom an admin."
-		}
+		var newReputation int
+		var responseMessage string
+		var err error
 
-		// Create a response string - "@user your rep +1, current rep[someRepInt]"
-		userLabel := toUser.FirstName
-		if toUser.UserName != "" {
-			userLabel = "@" + toUser.UserName
+		// IF NEG keyword => DECREMENT
+		if matchedKeyword.IsNegative {
+			newReputation, err = DecreaseReputation(toUser.ID, toUser.UserName)
+			if err != nil {
+				return "⛔ERROR: Could not update reputation Databse: Inform an admin.⛔"
+			}
+
+			// Write response message
+			responseMessage = fmt.Sprintf("📉 %s -1 Reputation! (Trigger: '%s')\nTotal Rep: %d", formatName(toUser), matchedKeyword.Pattern, newReputation)
+
+		} else {
+			// IF POS keyword => INCREMENT (DEFAULT ACTION)
+			newReputation, err = AddReputation(toUser.ID, toUser.UserName)
+			if err != nil {
+				return "⛔ERROR: Could not update reputation Databse: Inform an admin.⛔"
+			}
+
+			responseMessage = fmt.Sprintf("🌟 %s +1 Reputation!\nTotal Rep: %d", formatName(toUser), newReputation)
 		}
-		return fmt.Sprintf("🌟 %s +1 Reputation!\nTotal Rep: %d", userLabel, newReputation)
+		return responseMessage
 	}
 	return ""
 }
 
 /*
-* Called from handlersCheckCommands - Adds a keyword and assigns the added and an ID
 * /addkeyword command
+* DEFAULT => POSITIVE KW
  */
 func AddKeyword(pattern string, update *tgbotapi.Update) string {
+	return addKeywordInternal(pattern, false, update)
+}
+
+/*
+* /addnegkeyword command
+* DEFAULT => POSITIVE KW
+ */
+func AddNegativeKeyword(pattern string, update *tgbotapi.Update) string {
+	return addKeywordInternal(pattern, true, update)
+}
+
+// Internal helper to avoid duplicate code
+func addKeywordInternal(pattern string, isNegative bool, update *tgbotapi.Update) string {
 	pattern = strings.TrimSpace(pattern)
 
-	// Check for empty pattern - mitigate empty keywords being added
 	if pattern == "" {
-		return "Error: Keyword pattern cannot be empty."
+		return "Error: Pattern cannot be empty."
 	}
 
-	// Check if pattern already exists (exact same regex string)
+	// Check for dupliacte keywords
 	for _, kw := range keywords {
 		if kw.Pattern == pattern {
-			return fmt.Sprintf("Error: Keyword already exists as #%d: %s (by @%s)", kw.ID, kw.Pattern, kw.AddedBy)
+			return fmt.Sprintf("ERROR: Keyword already exists as #%d", kw.ID)
 		}
 	}
 
+	// Compile regex if regex string was passed
 	regex, err := regexp.Compile(pattern)
 	if err != nil {
-		return fmt.Sprintf("Error: Invalid regex: %v", err)
+		return fmt.Sprintf("ERROR: Invalid regex: %v", err)
 	}
 
 	username := update.Message.From.UserName
@@ -107,14 +129,27 @@ func AddKeyword(pattern string, update *tgbotapi.Update) string {
 
 	id := nextKeyWord
 	nextKeyWord++
-	// Create Keyword struct
-	keywords[id] = Keyword{ID: id, Pattern: pattern, Regex: regex, AddedBy: username}
 
-	if err := saveKeywordsToFile(); err != nil {
-		return fmt.Sprintf("Added keyword #%d but failed to save to disk: %v", id, err)
+	// Create struct for keyword
+	keywords[id] = Keyword{
+		ID:         id,
+		Pattern:    pattern,
+		IsNegative: isNegative,
+		Regex:      regex,
+		AddedBy:    username,
 	}
 
-	return fmt.Sprintf("Added keyword #%d: %s by @%s", id, pattern, username)
+	if err := saveKeywordsToFile(); err != nil {
+		return fmt.Sprintf("ERROR: Failed to save keyword to disk: %v", err)
+	}
+
+	typeLabel := "POSITIVE"
+	if isNegative {
+		typeLabel = "NEGATIVE"
+	}
+
+	return fmt.Sprintf("✅ Added %s keyword #%d: '%s'", typeLabel, id, pattern)
+
 }
 
 /*
@@ -146,7 +181,7 @@ func DeleteKeyword(idString string) string {
  */
 func ListKeywords() string {
 	if len(keywords) == 0 {
-		return "Error: No keywords have been defined."
+		return "⛔Error: No keywords have been defined⛔"
 	}
 
 	// Convert map to slice for sorting
@@ -163,13 +198,18 @@ func ListKeywords() string {
 
 	// Build the output string
 	var keywordList strings.Builder
-	keywordList.WriteString("Current keywords:\n")
+	keywordList.WriteString("📜 **Current Keywords** (Newest First):\n")
 
 	// Output keyword list
 	for _, kw := range list {
-		fmt.Fprintf(&keywordList, "#%d %s (by @%s)\n", kw.ID, kw.Pattern, kw.AddedBy)
-	}
+		// Add a visual indicator for negative words
+		tag := "➕"
+		if kw.IsNegative {
+			tag = "⛔ [NEG]"
+		}
 
+		fmt.Fprintf(&keywordList, "#%d %s: \"%s\" (by @%s)\n", kw.ID, tag, kw.Pattern, kw.AddedBy)
+	}
 	return keywordList.String()
 }
 
@@ -222,4 +262,12 @@ func LoadKeywordFromFile() error {
 	}
 	nextKeyWord = maxID + 1
 	return nil
+}
+
+// Helper to format name for response
+func formatName(user *tgbotapi.User) string {
+	if user.UserName != "" {
+		return "@" + user.UserName
+	}
+	return user.FirstName
 }
