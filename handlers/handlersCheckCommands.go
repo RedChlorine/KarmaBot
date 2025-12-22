@@ -176,27 +176,22 @@ func CheckCommands(update *tgbotapi.Update) string {
 // Priority: 1. Reply User, 2. @Mention or ID in args, 3. Self
 func helperResolveTarget(update *tgbotapi.Update, args []string) (int64, string) {
 	// 1. Check for Reply
-	//if update.Message.ReplyToMessage != nil {
-	//	user := update.Message.ReplyToMessage.From
-	//	/*******************DEBUG INFO**********************/
-	//	log.Printf("User used a reply\nUSER:%d\nFIRSTNAME:%s", user.ID, user.UserName)
-	//	return user.ID, user.UserName
-	//}
+	if update.Message.ReplyToMessage != nil {
+		user := update.Message.ReplyToMessage.From
+		/*******************DEBUG INFO**********************/
+		//log.Printf("User used a reply\nUSER:%d\nFIRSTNAME:%s", user.ID, user.UserName)
+		return user.ID, user.UserName
+	}
 
 	// 2. Check for Arguments (@User)
 	if len(args) > 1 {
 		possibleName := args[1]
-		/*******************DEBUG INFO**********************/
-		//log.Printf("\n\nHELPER - RESOLVE_TARGET\nFound possible Name: %s", possibleName)
 
 		// Check if arg is a Name (not a number)
 		// We use Atoi to make sure we don't catch "/setrep 100" as a username
 		if _, err := strconv.Atoi(possibleName); err != nil {
 
 			id := HelperFindUserID(possibleName)
-
-			//log.Printf("\n\nHELPER - RESOLVE_TARGET\nID of possible name: %d\nUSERNAME of possible name: %s", id, possibleName)
-
 			return id, possibleName
 		}
 	}
