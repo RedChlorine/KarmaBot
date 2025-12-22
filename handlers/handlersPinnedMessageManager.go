@@ -1,0 +1,202 @@
+package handlers
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"sync"
+
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+)
+
+// PinEntry represents a tracked pinned message
+type PinEntry struct {
+	InternalID int    `json:"internal_id"`
+	ChatID     int64  `json:"chat_id"`
+	MessageID  int    `json:"message_id"`
+	PinnedBy   string `json:"pinned_by"`
+}
+
+var (
+	pinMap      = make(map[int]PinEntry)
+	knownGroups = make(map[int64]bool) // Tracks groups for unpinning
+	pinFile     = "handlers\\maps\\mapsPinMessages.json"
+	groupFile   = "handlers\\maps\\mapsPinGroups.json"
+	nextPinID   = 1
+	pinMutex    sync.Mutex
+)
+
+// -- PIN LOGIC -- //
+
+// Pins the specific message in the chat and saves the entry to the DB
+func PinMessage(bot *tgbotapi.BotAPI, chatID int64, messageID int, pinner string) string {
+	pinMutex.Lock()
+	defer pinMutex.Unlock()
+
+	// Send pin API request
+	pinConfig := tgbotapi.PinChatMessageConfig{
+		ChatID:    chatID,
+		MessageID: messageID,
+	}
+	// Sends ERROR if the request to pin failed
+	if _, err := bot.Request(pinConfig); err != nil {
+		return fmt.Sprintf("⚠️ ERROR: Failed to pin message: %v", err)
+	}
+
+	// Save to DB if successful for tracking
+	id := nextPinID
+	nextPinID++
+
+	pinMap[id] = PinEntry{
+		InternalID: id,
+		ChatID:     chatID,
+		MessageID:  messageID,
+		PinnedBy:   pinner,
+	}
+
+	helperSavePins()
+	return fmt.Sprintf("✅ Message Pinned and Saved to DB! (Pin ID: #%d)", id)
+}
+
+// Unpins a message by its Internal ID
+func UnpinByID(bot *tgbotapi.BotAPI, id int) string {
+	pinMutex.Lock()
+	defer pinMutex.Unlock()
+
+	entry, exists := pinMap[id]
+	if !exists {
+		return fmt.Sprintf("⚠️ ERROR: Pin ID #%d not found.", id)
+	}
+
+	// Send unpin API request
+	unpinConfig := tgbotapi.UnpinChatMessageConfig{
+		ChatID:    entry.ChatID,
+		MessageID: entry.MessageID,
+	}
+	// Sends ERROR if the request to unpin failed
+	if _, err := bot.Request(unpinConfig); err != nil {
+		return fmt.Sprintf("⚠️ ERROR: Failed to unpin (maybe it was already deleted?): %v", err)
+	}
+
+	// Delete DB entry
+	delete(pinMap, id)
+	helperSavePins()
+
+	return fmt.Sprintf("🗑️ Unpinned message #%d.", id)
+}
+
+// Unpins everything in the current group where the command was sent
+func UnpinAllInChat(bot *tgbotapi.BotAPI, chatID int64) string {
+	pinMutex.Lock()
+	defer pinMutex.Unlock()
+
+	// Send unpin all pins API request
+	// NOTE: This unpins all pins - tracked and untracked
+	// Sends ERROR if the request to unpin failed
+	if _, err := bot.Request(tgbotapi.UnpinAllChatMessagesConfig{ChatID: chatID}); err != nil {
+		return fmt.Sprintf("⚠️ ERROR:Could not unpin all messages: %v", err)
+	}
+
+	// Clear our DB for this specific ChatID
+	// We have to loop because our map is Keyed by ID, not ChatID
+	for id, entry := range pinMap {
+		if entry.ChatID == chatID {
+			delete(pinMap, id)
+		}
+	}
+	helperSavePins()
+
+	return "🗑️ All messages in this group have been unpinned in this group."
+}
+
+// Sends a message to all known groups and pins it
+func BroadcastAndPin(bot *tgbotapi.BotAPI, text string, pinner string) string {
+	pinMutex.Lock()
+	// Unlock temporarily during loop to avoid deadlock if PinMessage calls Lock again?
+	// Actually PinMessage locks, so we must be careful.
+	// We will duplicate the "Send" logic here to avoid re-locking or just handle the lock carefully.
+	known := make([]int64, 0, len(knownGroups))
+	for chatID := range knownGroups {
+		known = append(known, chatID)
+	}
+	pinMutex.Unlock() // Unlock loop so the loop can call PinMessage safely
+
+	count := 0
+
+	for _, chatID := range known {
+		// Send message
+		message := tgbotapi.NewMessage(chatID, text)
+		sentMessage, err := bot.Send(message)
+
+		// If sent successfully , Pin it
+		if err == nil {
+			PinMessage(bot, chatID, sentMessage.MessageID, pinner)
+			count++
+		}
+	}
+	return fmt.Sprintf("📢 Broadcasted and pinned to %d groups.", count)
+}
+
+// -- HELPERS -- //
+
+// -- Tracking -- //
+// Adds a group to the known list for /pinall
+func HelperRegisterGroup(chatID int64) {
+	pinMutex.Lock()
+	defer pinMutex.Unlock()
+
+	if _, exists := knownGroups[chatID]; !exists {
+		knownGroups[chatID] = true
+		helperSaveGroups()
+	}
+}
+
+// -- Data Persistence -- //
+func helperSavePins() {
+	list := make([]PinEntry, 0, len(pinMap))
+	for _, p := range pinMap {
+		list = append(list, p)
+	}
+	data, _ := json.MarshalIndent(list, "", "  ")
+	os.WriteFile(pinFile, data, 0664)
+}
+
+func helperSaveGroups() {
+	// Convert map keys to slice
+	list := make([]int64, 0, len(knownGroups))
+
+	for id := range knownGroups {
+		list = append(list, id)
+	}
+
+	data, _ := json.MarshalIndent(list, "", "  ")
+	os.WriteFile(groupFile, data, 0664)
+}
+
+// LoadPinManager loads both Pins and Groups
+func LoadPinManager() {
+	// Load Pins
+	if data, err := os.ReadFile(pinFile); err == nil {
+		var list []PinEntry
+		if json.Unmarshal(data, &list) == nil {
+			maxID := 0
+			for _, p := range list {
+				pinMap[p.InternalID] = p
+				if p.InternalID > maxID {
+					maxID = p.InternalID
+				}
+			}
+			nextPinID = maxID + 1
+		}
+	}
+
+	// Load Groups
+	if data, err := os.ReadFile(groupFile); err == nil {
+		var list []int64
+		if json.Unmarshal(data, &list) == nil {
+			for _, id := range list {
+				knownGroups[id] = true
+			}
+		}
+	}
+}

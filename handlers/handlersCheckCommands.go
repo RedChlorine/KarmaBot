@@ -9,10 +9,13 @@ import (
 )
 
 // CheckCommands looks for bot commands in the message
-func CheckCommands(update *tgbotapi.Update) string {
+func CheckCommands(bot *tgbotapi.BotAPI, update *tgbotapi.Update) string {
 	if update.Message == nil || update.Message.Text == "" {
 		return ""
 	}
+
+	//Register the group for /pinall logic
+	HelperRegisterGroup(update.Message.Chat.ID)
 
 	// Check that command starts with "/"
 	if !strings.HasPrefix(update.Message.Text, "/") {
@@ -110,7 +113,6 @@ func CheckCommands(update *tgbotapi.Update) string {
 
 		// Get target info
 		targetID, targetName := helperResolveTarget(update, parts)
-		//log.Printf("\n\nHANDLERS - COMMANDS - SETREP\nTARGRET_ID:%d\nTARGET_NAME:%s", targetID, targetName)
 
 		if targetID == 0 {
 			return fmt.Sprintf("❌ Error: User '%s' not found in Reputation map. The bot can only manage users who have spoken before.", targetName)
@@ -147,6 +149,54 @@ func CheckCommands(update *tgbotapi.Update) string {
 	case "/top":
 		// Returns up to 10 with the highest rep in the DBs
 		return GetTopReputation()
+
+	case "/pin":
+		// Usage: Reply to a message and type /pin
+		if !CheckAdminRights(userID) {
+			return "⛔ Admin only."
+		}
+
+		if update.Message.ReplyToMessage == nil {
+			return "⚠️ You must reply to the message you want to pin."
+		}
+		// Call the Pin Function
+		return PinMessage(bot, update.Message.Chat.ID, update.Message.ReplyToMessage.MessageID, update.Message.From.FirstName)
+
+	case "/unpin":
+		// Usage: /unpin <ID>
+		if !CheckAdminRights(userID) {
+			return "⛔ Admin only."
+		}
+
+		if len(parts) < 2 {
+			return "Usage: /unpin <Pin ID#> (e.g. /unpin 5)"
+		}
+
+		id, err := strconv.Atoi(parts[1])
+		if err != nil {
+			return "Error: Pin ID must be a number."
+		}
+		return UnpinByID(bot, id)
+
+	case "/unpinall":
+		// Usage: /unpinall
+		if !CheckAdminRights(userID) {
+			return "⛔ Admin only."
+		}
+		return UnpinAllInChat(bot, update.Message.Chat.ID)
+
+	case "/pinall":
+		// Usage: /pinall <message text>
+		if !CheckAdminRights(userID) {
+			return "⛔ Admin only."
+		}
+
+		if len(parts) < 2 {
+			return "Usage: /pinall <text to broadcast and pin>"
+		}
+
+		text := strings.Join(parts[1:], " ")
+		return BroadcastAndPin(bot, text, update.Message.From.FirstName)
 
 	// -- DEPRICATED -- //
 	/*case "/decrement":

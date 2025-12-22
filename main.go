@@ -36,6 +36,9 @@ func main() { // Main function is the entry point of the program
 		log.Println("Warning: Could not load reputation file - Rep system may not function as intended:", err)
 	}
 
+	// Loads pin message data from handlers/maps/mapsPinMessages.json
+	handlers.LoadPinManager()
+
 	// Enables verbose debug output to the console
 	bot.Debug = true
 	log.Println("Bot is running and ready!") //console log if bot is running
@@ -52,7 +55,7 @@ func main() { // Main function is the entry point of the program
 		// Checks if the update contains a message (ignores other update types)
 		if update.Message != nil {
 			//Check message for commands
-			reply := handlers.CheckCommands(&update)
+			reply := handlers.CheckCommands(bot, &update)
 			if reply == "" {
 				// If !=command then chekc for keywords
 				reply = handlers.CheckMessageKeywords(&update)
