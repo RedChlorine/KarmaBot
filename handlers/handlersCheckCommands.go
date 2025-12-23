@@ -39,7 +39,7 @@ func CheckCommands(bot *tgbotapi.BotAPI, update *tgbotapi.Update) string {
 		return "Welcome! This is KarmaBot!, ready to check your Karma :)\n\nTo get started, run /help"
 
 	case "/help":
-		return "Available commands:\n/start - Displays the Welcome message\n/help  - Displays this message\n/top - View the Top 10 Leaderboard 🏆\n/addkeyword - Adds keywords that the bot looks for\n/addbadword - Adds  negative keywords that the bot decrements rep for\n/deletekeyword - Removes a keyword by its ID#\n/listkeywords - Shows the current list of word the bot looks for\n/checkrep - Displays the current user's reputation\n/setrep - Forces a user's rep to be set to the value you provide\n/resetrep - Resets a user's reputation to zero\n/decrement - Reduces a user's reputation by one"
+		return "Available commands:\n/start - Displays the Welcome message\n/help  - Displays this message\n/top - View the Top 10 Leaderboard 🏆\n/addkeyword - Adds keywords that the bot looks for\n/addbadword - Adds  negative keywords that the bot decrements rep for\n/deletekeyword - Removes a keyword by its ID#\n/listkeywords - Shows the current list of word the bot looks for\n/checkrep - Displays the current user's reputation\n/setrep - Forces a user's rep to be set to the value you provide\n/resetrep - Resets a user's reputation to zero\n/pin - Pins a message in the group that it's replied to\n/pinall - Broadcasts the message in all groups and pins it\n/unpin - Unpins a message in the group by its ID\n/unpinall - Currently unpins all pinnned messages in the group where the command was sent\n"
 
 	// --- KEYWORD COMMANDS ---
 	case "/addkeyword":
@@ -155,17 +155,18 @@ func CheckCommands(bot *tgbotapi.BotAPI, update *tgbotapi.Update) string {
 		if !CheckAdminRights(userID) {
 			return "⛔ Admin only."
 		}
-
 		if update.Message.ReplyToMessage == nil {
 			return "⚠️ You must reply to the message you want to pin."
 		}
-		// Call the Pin Function
-		return PinMessage(bot, update.Message.Chat.ID, update.Message.ReplyToMessage.MessageID, update.Message.From.FirstName)
+
+		// Pass the text so it can be saved in the list
+		text := update.Message.ReplyToMessage.Text
+		return PinMessage(bot, update.Message.Chat.ID, update.Message.ReplyToMessage.MessageID, update.Message.From.FirstName, text)
 
 	case "/unpin":
 		// Usage: /unpin <ID>
 		if !CheckAdminRights(userID) {
-			return "⛔ Admin only."
+			return "⛔ Permission Denied: You are not an admin."
 		}
 
 		if len(parts) < 2 {
@@ -181,14 +182,14 @@ func CheckCommands(bot *tgbotapi.BotAPI, update *tgbotapi.Update) string {
 	case "/unpinall":
 		// Usage: /unpinall
 		if !CheckAdminRights(userID) {
-			return "⛔ Admin only."
+			return "⛔ Permission Denied: You are not an admin."
 		}
 		return UnpinAllInChat(bot, update.Message.Chat.ID)
 
 	case "/pinall":
 		// Usage: /pinall <message text>
 		if !CheckAdminRights(userID) {
-			return "⛔ Admin only."
+			return "⛔ Permission Denied: You are not an admin."
 		}
 
 		if len(parts) < 2 {
@@ -197,6 +198,12 @@ func CheckCommands(bot *tgbotapi.BotAPI, update *tgbotapi.Update) string {
 
 		text := strings.Join(parts[1:], " ")
 		return BroadcastAndPin(bot, text, update.Message.From.FirstName)
+
+	case "/listpins":
+		if !CheckAdminRights(userID) {
+			return "⛔ Permission Denied: You are not an admin."
+		}
+		return HelperListPins(update.Message.Chat.ID)
 
 	// -- DEPRICATED -- //
 	/*case "/decrement":

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"sync"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -11,10 +12,11 @@ import (
 
 // PinEntry represents a tracked pinned message
 type PinEntry struct {
-	InternalID int    `json:"internal_id"`
-	ChatID     int64  `json:"chat_id"`
-	MessageID  int    `json:"message_id"`
-	PinnedBy   string `json:"pinned_by"`
+	InternalID  int    `json:"internal_id"`
+	ChatID      int64  `json:"chat_id"`
+	MessageID   int    `json:"message_id"`
+	PinnedBy    string `json:"pinned_by"`
+	TextSnippet string `json:"text_snippet"`
 }
 
 var (
@@ -29,7 +31,7 @@ var (
 // -- PIN LOGIC -- //
 
 // Pins the specific message in the chat and saves the entry to the DB
-func PinMessage(bot *tgbotapi.BotAPI, chatID int64, messageID int, pinner string) string {
+func PinMessage(bot *tgbotapi.BotAPI, chatID int64, messageID int, pinner string, text string) string {
 	pinMutex.Lock()
 	defer pinMutex.Unlock()
 
@@ -47,11 +49,21 @@ func PinMessage(bot *tgbotapi.BotAPI, chatID int64, messageID int, pinner string
 	id := nextPinID
 	nextPinID++
 
+	// Creates a text snippet for ease of use
+	snippet := text
+	if len(snippet) > 50 {
+		snippet = snippet[:47] + "..."
+	}
+	if snippet == "" {
+		snippet = "[No Text/ Media]"
+	}
+
 	pinMap[id] = PinEntry{
-		InternalID: id,
-		ChatID:     chatID,
-		MessageID:  messageID,
-		PinnedBy:   pinner,
+		InternalID:  id,
+		ChatID:      chatID,
+		MessageID:   messageID,
+		PinnedBy:    pinner,
+		TextSnippet: snippet,
 	}
 
 	helperSavePins()
@@ -110,27 +122,56 @@ func UnpinAllInChat(bot *tgbotapi.BotAPI, chatID int64) string {
 }
 
 // Sends a message to all known groups and pins it
-func BroadcastAndPin(bot *tgbotapi.BotAPI, text string, pinner string) string {
+func BroadcastAndPin(bot *tgbotapi.BotAPI, baseText string, pinner string) string {
 	pinMutex.Lock()
-	// Unlock temporarily during loop to avoid deadlock if PinMessage calls Lock again?
-	// Actually PinMessage locks, so we must be careful.
-	// We will duplicate the "Send" logic here to avoid re-locking or just handle the lock carefully.
-	known := make([]int64, 0, len(knownGroups))
+	// We must be careful with locking. We need to iterate groups and modifying map.
+	// To be safe, we'll copy the group list then process.
+	targets := make([]int64, 0, len(knownGroups))
 	for chatID := range knownGroups {
-		known = append(known, chatID)
+		targets = append(targets, chatID)
 	}
-	pinMutex.Unlock() // Unlock loop so the loop can call PinMessage safely
+	pinMutex.Unlock() // Unlock so we can do slow network calls
 
 	count := 0
 
-	for _, chatID := range known {
-		// Send message
-		message := tgbotapi.NewMessage(chatID, text)
-		sentMessage, err := bot.Send(message)
+	for _, chatID := range targets {
+		pinMutex.Lock()
+		// Reserve an ID for this specific group's message
+		currentID := nextPinID
+		nextPinID++
+		pinMutex.Unlock()
 
-		// If sent successfully , Pin it
+		// 1. Append ID to text
+		finalText := fmt.Sprintf("%s\n\n📌 Pin ID: #%d", baseText, currentID)
+
+		// 2. Send Message
+		msg := tgbotapi.NewMessage(chatID, finalText)
+		sentMsg, err := bot.Send(msg)
+
 		if err == nil {
-			PinMessage(bot, chatID, sentMessage.MessageID, pinner)
+			// 3. Pin It
+			pinConfig := tgbotapi.PinChatMessageConfig{ChatID: chatID, MessageID: sentMsg.MessageID}
+			bot.Request(pinConfig)
+
+			// 4. Save to DB (We manually save here to use the Pre-Reserved ID)
+			pinMutex.Lock()
+
+			// Create Snippet
+			snippet := baseText
+			if len(snippet) > 30 {
+				snippet = snippet[:27] + "..."
+			}
+
+			pinMap[currentID] = PinEntry{
+				InternalID:  currentID,
+				ChatID:      chatID,
+				MessageID:   sentMsg.MessageID,
+				PinnedBy:    pinner,
+				TextSnippet: snippet,
+			}
+			helperSavePins()
+			pinMutex.Unlock()
+
 			count++
 		}
 	}
@@ -149,6 +190,35 @@ func HelperRegisterGroup(chatID int64) {
 		knownGroups[chatID] = true
 		helperSaveGroups()
 	}
+}
+
+func HelperListPins(chatID int64) string {
+	pinMutex.Lock()
+	defer pinMutex.Unlock()
+
+	// Collect pins for this chat
+	var list []PinEntry
+	for _, pin := range pinMap {
+		if pin.ChatID == chatID {
+			list = append(list, pin)
+		}
+	}
+
+	if len(list) == 0 {
+		return "No active pins tracked in this chat."
+	}
+
+	// Sort by ID
+	sort.Slice(list, func(i, j int) bool {
+		return list[i].InternalID < list[j].InternalID
+	})
+
+	// Build String
+	out := "📌 **Active Pins**:\n"
+	for _, pin := range list {
+		out += fmt.Sprintf("ID #%d: \"%s\" (by %s)\n", pin.InternalID, pin.TextSnippet, pin.PinnedBy)
+	}
+	return out
 }
 
 // -- Data Persistence -- //
