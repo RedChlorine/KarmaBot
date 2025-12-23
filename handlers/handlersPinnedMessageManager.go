@@ -214,9 +214,9 @@ func HelperListPins(chatID int64) string {
 	})
 
 	// Build String
-	out := "📌 **Active Pins**:\n"
+	out := "📌 **Active Pins**:\n\n"
 	for _, pin := range list {
-		out += fmt.Sprintf("ID #%d: \"%s\" (by %s)\n", pin.InternalID, pin.TextSnippet, pin.PinnedBy)
+		out += fmt.Sprintf("ID #%d: \"%s\" (by %s)\n\n", pin.InternalID, pin.TextSnippet, pin.PinnedBy)
 	}
 	return out
 }
