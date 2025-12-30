@@ -56,14 +56,29 @@ func main() { // Main function is the entry point of the program
 		if update.Message != nil {
 			//Check message for commands
 			reply := handlers.CheckCommands(bot, &update)
+			isCommand := reply != "" // Flag to remember if this was a command
+
+			// 2. If not a command, Check for Keywords
 			if reply == "" {
-				// If !=command then chekc for keywords
 				reply = handlers.CheckMessageKeywords(&update)
 			}
 
 			if reply != "" {
 				msg := tgbotapi.NewMessage(update.Message.Chat.ID, reply)
-				msg.ReplyToMessageID = update.Message.MessageID
+
+				// If it is a COMMAND in a GROUP, the user message was auto-deleted.
+				// We MUST NOT reply to it, or the API will error - RACE CONDITION
+				shouldReplyToMessage := true
+
+				if isCommand && update.Message.Chat.Type != "private" {
+					shouldReplyToMessage = false
+				}
+
+				// Only attach the ID if the message still exists
+				if shouldReplyToMessage {
+					msg.ReplyToMessageID = update.Message.MessageID
+				}
+				// ------------------------------
 
 				bot.Send(msg)
 			}
