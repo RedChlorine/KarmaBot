@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 	"sync"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -119,6 +120,35 @@ func UnpinAllInChat(bot *tgbotapi.BotAPI, chatID int64) string {
 	helperSavePins()
 
 	return "🗑️ All messages in this group have been unpinned in this group."
+}
+
+func UnpinAllGlobal(bot *tgbotapi.BotAPI) string {
+	pinMutex.Lock()
+	// Copy targets to avoid holding lock during network calls
+	targets := make([]int64, 0, len(knownGroups))
+	for chatID := range knownGroups {
+		targets = append(targets, chatID)
+	}
+	pinMutex.Unlock()
+
+	countSuccess := 0
+	countFail := 0
+
+	for _, chatID := range targets {
+		// 4. Reuse existing logic for single chat
+		// UnpinAllInChat handles its own locking and database persistence
+		result := UnpinAllInChat(bot, chatID)
+
+		// 5. Track success/failure based on the text response
+		// (Your UnpinAllInChat returns "⚠️ ERROR..." on failure)
+		if strings.Contains(result, "ERROR") {
+			countFail++
+		} else {
+			countSuccess++
+		}
+	}
+
+	return fmt.Sprintf("🌍 Global Unpin Complete.\n✅ Success: %d groups\n⚠️ Failed: %d groups", countSuccess, countFail)
 }
 
 // Sends a message to all known groups and pins it

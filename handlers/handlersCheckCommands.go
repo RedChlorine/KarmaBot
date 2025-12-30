@@ -189,11 +189,18 @@ func CheckCommands(bot *tgbotapi.BotAPI, update *tgbotapi.Update) string {
 		return UnpinByID(bot, id)
 
 	case "/unpinall":
-		// Usage: /unpinall
+		// Usage: /unpinall confirm
 		if !CheckAdminRights(userID) {
 			return "⛔ Permission Denied: You are not an admin."
 		}
-		return UnpinAllInChat(bot, update.Message.Chat.ID)
+
+		// Check if the user added the "confirm" argument - early return if not passed
+		if len(parts) < 2 || !strings.EqualFold(parts[1], "confirm") {
+			return "⚠️ SAFETY CHECK: This will unpin ALL messages in ALL groups.\n\nTo proceed, you must type:\n`/unpinall confirm`"
+		}
+
+		// If they typed "/unpinall confirm", run the function
+		return UnpinAllGlobal(bot)
 
 	case "/pinall":
 		// Usage: /pinall <message text>
