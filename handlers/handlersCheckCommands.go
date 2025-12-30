@@ -39,9 +39,18 @@ func CheckCommands(bot *tgbotapi.BotAPI, update *tgbotapi.Update) string {
 		return "Welcome! This is KarmaBot!, ready to check your Karma :)\n\nTo get started, run /help"
 
 	case "/help":
-		return "Available commands:\n/start - Displays the Welcome message\n/help  - Displays this message\n/top - View the Top 10 Leaderboard 🏆\n/addkeyword - Adds keywords that the bot looks for\n/addbadword - Adds  negative keywords that the bot decrements rep for\n/deletekeyword - Removes a keyword by its ID#\n/listkeywords - Shows the current list of word the bot looks for\n/checkrep - Displays the current user's reputation\n/setrep - Forces a user's rep to be set to the value you provide\n/resetrep - Resets a user's reputation to zero\n/pin - Pins a message in the group that it's replied to\n/pinall - Broadcasts the message in all groups and pins it\n/unpin - Unpins a message in the group by its ID\n/unpinall - Currently unpins all pinnned messages in the group where the command was sent\n"
+		if CheckAdminRights(userID) {
+			return "Available commands:\n/start - Displays the Welcome message\n/help  - Displays this message\n/top - View the Top 10 Leaderboard 🏆\n/ping - Checks if the bot is alive\n/addkeyword - Adds keywords that the bot looks for\n/addbadword - Adds  negative keywords that the bot decrements rep for\n/deletekeyword - Removes a keyword by its ID#\n/listkeywords - Shows the current list of word the bot looks for\n/checkrep - Displays the current user's reputation\n/setrep - Forces a user's rep to be set to the value you provide\n/resetrep - Resets a user's reputation to zero\n/pin - Pins a message in the group that it's replied to\n/pinall - Broadcasts the message in all groups and pins it\n/unpin - Unpins a message in the group by its ID\n/unpinall - Currently unpins all pinnned messages in the group where the command was sent\n"
+		} else {
+			return "Available commands:\n/start - Displays the Welcome message\n/help  - Displays this message\n/top - View the Top 10 Leaderboard 🏆\n/ping - Checks if the bot is alive\n"
+		}
 
 	// --- KEYWORD COMMANDS ---
+
+	case "/ping":
+		// if the bot is alive - it'll respond
+		return "PONG!"
+
 	case "/addkeyword":
 		// Check if sender is an admin
 		if !CheckAdminRights(userID) {
@@ -235,8 +244,6 @@ func helperResolveTarget(update *tgbotapi.Update, args []string) (int64, string)
 	// 1. Check for Reply
 	if update.Message.ReplyToMessage != nil {
 		user := update.Message.ReplyToMessage.From
-		/*******************DEBUG INFO**********************/
-		//log.Printf("User used a reply\nUSER:%d\nFIRSTNAME:%s", user.ID, user.UserName)
 		return user.ID, user.UserName
 	}
 
@@ -247,7 +254,6 @@ func helperResolveTarget(update *tgbotapi.Update, args []string) (int64, string)
 		// Check if arg is a Name (not a number)
 		// We use Atoi to make sure we don't catch "/setrep 100" as a username
 		if _, err := strconv.Atoi(possibleName); err != nil {
-
 			id := HelperFindUserID(possibleName)
 			return id, possibleName
 		}

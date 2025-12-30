@@ -63,8 +63,6 @@ func main() { // Main function is the entry point of the program
 
 			if reply != "" {
 				msg := tgbotapi.NewMessage(update.Message.Chat.ID, reply)
-
-				// This makes the bot actually REPLY (quote) the user's message
 				msg.ReplyToMessageID = update.Message.MessageID
 
 				bot.Send(msg)
