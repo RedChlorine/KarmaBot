@@ -30,6 +30,9 @@ func main() { // Main function is the entry point of the program
 	// SETUP: sets global bot pointer and loads loggin channel ID
 	handlers.InitLogHandler(bot)
 
+	// --- INITIALISE DATABASE --- //
+	handlers.InitDB()
+
 	// Loads the keywords from disk from handlers/maps/mapsKeywords.json
 	if err := handlers.LoadKeywordFromFile(); err != nil {
 		handlers.LogError("Warning: Could not load keywords file: %v", err)

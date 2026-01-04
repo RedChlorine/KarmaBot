@@ -228,6 +228,15 @@ func CheckCommands(bot *tgbotapi.BotAPI, update *tgbotapi.Update) string {
 		}
 		return HelperListPins(update.Message.Chat.ID)
 
+	// --- DB TEST COMMANDS --- //
+	case "/testdb":
+		newScore, err := DBAddReputation(userID, update.Message.From.UserName)
+		if err != nil {
+			return fmt.Sprintf("❌ SQL Error: %v", err)
+		}
+
+		return fmt.Sprintf("✅ SQL SUCCESS! I added +1 to your rep in the Postgres DB.\nNew DB Score: %d", newScore)
+
 	// -- DEPRICATED -- //
 	/*case "/decrement":
 	// Decrements a user's rep by 1
