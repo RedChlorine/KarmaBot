@@ -14,8 +14,7 @@ services:
     volumes:
       - db_data:/var/lib/postgresql/data
 
-# --- GUI TO CHECK THE DB --- #
-pgadmin:
+  pgadmin:
     image: dpage/pgadmin4
     container_name: karmabot_pgadmin
     restart: always
