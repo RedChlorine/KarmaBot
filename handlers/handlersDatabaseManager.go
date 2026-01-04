@@ -235,7 +235,7 @@ func DBLoadKeywords() ([]Keyword, error) {
 	var list []Keyword
 	for rows.Next() {
 		var keyword Keyword
-		rows.Scan(&keyword.ID, &keyword.Pattern, &keyword.AddedBy)
+		rows.Scan(&keyword.ID, &keyword.Pattern, &keyword.IsNegative, &keyword.AddedBy)
 		list = append(list, keyword)
 	}
 	return list, nil

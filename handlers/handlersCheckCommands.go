@@ -39,7 +39,12 @@ func CheckCommands(bot *tgbotapi.BotAPI, update *tgbotapi.Update) string {
 	case "/start":
 		return "Welcome to KarmaBot! 🤖"
 	case "/help":
-		return "Available Commands:\n/checkrep, /top\n\nAdmins:\n/setrep, /resetrep\n/addkeyword, /deletekeyword\n/pin, /unpin, /pinall, /unpinall"
+		if CheckAdminRights(userID) {
+			return "Available commands:\n/start - Displays the Welcome message\n/help  - Displays this message\n/top - View the Top 10 Leaderboard 🏆\n/ping - Checks if the bot is alive\n/addkeyword - Adds keywords that the bot looks for\n/addbadword - Adds  negative keywords that the bot decrements rep for\n/deletekeyword - Removes a keyword by its ID#\n/listkeywords - Shows the current list of word the bot looks for\n/listpins - Lets you check the list of current pins and their IDs\n/checkrep - Displays the current user's reputation\n/setrep - Forces a user's rep to be set to the value you provide\n/resetrep - Resets a user's reputation to zero\n/pin - Pins a message in the group that it's replied to\n/pinall - Broadcasts the message in all groups and pins it\n/unpin - Unpins a message in the group by its ID\n/unpinall - Globally unpins all pinned messages - !CAUTION!\n"
+		} else {
+			return "Available commands:\n/start - Displays the Welcome message\n/help  - Displays this message\n/top - View the Top 10 Leaderboard 🏆\n/ping - Checks if the bot is alive\n"
+		}
+
 	case "/ping":
 		return "PONG! 🏓"
 
