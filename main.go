@@ -4,6 +4,7 @@ package main // Defines the main package for your executable application
 import (
 	"log" // Used for logging errors and information to the console
 	"os"  // Used to access environment variables
+	"strconv"
 
 	"karmabotv02/handlers"
 
@@ -39,9 +40,42 @@ func main() { // Main function is the entry point of the program
 	// Loads pin message data from handlers/maps/mapsPinMessages.json
 	handlers.LoadPinManager()
 
-	// Enables verbose debug output to the console
+	// --- DEBUG --- //
 	bot.Debug = true
 	log.Println("Bot is running and ready!") //console log if bot is running
+
+	// --- STARTUP NOTIFICATION --- //
+	logChannelID := os.Getenv("LOG_CHANNEL_ID")
+	logGroupID := os.Getenv("LOG_GROUP_ID")
+
+	if logChannelID != "" {
+		logChannelID, err := strconv.Atoi(logChannelID)
+		if err != nil {
+			log.Println("⚠️ WARNING: Could not parse LOG_CHANNEL_ID:", err)
+		} else {
+			messageIsAlive := "🟢 KarmaBot is up and running!"
+			logIsAlive := tgbotapi.NewMessage(int64(logChannelID), messageIsAlive)
+			bot.Send(logIsAlive)
+		}
+	} else {
+		log.Println("ℹ️ Note: LOG_CHANNEL_ID not set in Env.env, skipping startup message.")
+	}
+
+	if logGroupID != "" {
+		logGroupID, err := strconv.Atoi(logGroupID)
+		if err != nil {
+			log.Println("⚠️ WARNING: Could not parse LOG_GROUP_ID:", err)
+		} else {
+			messageIsAlive := "🟢 KarmaBot is up and running!"
+			logIsAlive := tgbotapi.NewMessage(int64(logGroupID), messageIsAlive)
+			bot.Send(logIsAlive)
+		}
+	} else {
+		log.Println("ℹ️ Note: LOG_GROUP_ID not set in Env.env, skipping startup message.")
+		messageIsAlive := "🟢 KarmaBot is up and running! - ℹ️ BUT .ENV CONFIG FAILED TO PARSE"
+		logIsAlive := tgbotapi.NewMessage(-1003600147866, messageIsAlive)
+		bot.Send(logIsAlive)
+	}
 
 	// Creates a new Update configuration object, starting from the earliest possible update
 	update := tgbotapi.NewUpdate(0)
