@@ -14,278 +14,218 @@ func CheckCommands(bot *tgbotapi.BotAPI, update *tgbotapi.Update) string {
 		return ""
 	}
 
-	//Register the group for /pinall logic
-	HelperRegisterGroup(update.Message.Chat.ID)
+	// 1. Register Group in DB (for Broadcasts)
+	if update.Message.Chat.Type != "private" {
+		DBRegisterGroup(update.Message.Chat.ID)
+	}
 
-	// Check that command starts with "/"
+	// 2. Check for Prefix
 	if !strings.HasPrefix(update.Message.Text, "/") {
 		return ""
 	}
 
-	// Auto-delete commands in Groups and SuperGroups
+	// 3. Auto-delete command message in groups
 	if update.Message.Chat.Type != "private" {
-		deleteConfig := tgbotapi.NewDeleteMessage(update.Message.Chat.ID, update.Message.MessageID)
-		bot.Request(deleteConfig)
+		bot.Request(tgbotapi.NewDeleteMessage(update.Message.Chat.ID, update.Message.MessageID))
 	}
-	//---------------------------------------------------------------------------
 
-	// Extract the command
+	// 4. Parse Command
 	parts := strings.Fields(update.Message.Text)
-	command := parts[0]
-
-	// Remove possible @(botname) suffix
-	command = strings.SplitN(command, "@", 2)[0]
-
-	// Get user ID to check if isAdmin = TRUE
+	command := strings.SplitN(parts[0], "@", 2)[0] // Handle /cmd@BotName
 	userID := update.Message.From.ID
 
 	switch command {
-
-	// --- COMMON COMMANDS ---
+	// --- BASICS ---
 	case "/start":
-		return "Welcome! This is KarmaBot!, ready to check your Karma :)\n\nTo get started, run /help"
-
+		return "Welcome to KarmaBot! 🤖"
 	case "/help":
-		if CheckAdminRights(userID) {
-			return "Available commands:\n/start - Displays the Welcome message\n/help  - Displays this message\n/top - View the Top 10 Leaderboard 🏆\n/ping - Checks if the bot is alive\n/addkeyword - Adds keywords that the bot looks for\n/addbadword - Adds  negative keywords that the bot decrements rep for\n/deletekeyword - Removes a keyword by its ID#\n/listkeywords - Shows the current list of word the bot looks for\n/listpins - Lets you check the list of current pins and their IDs\n/checkrep - Displays the current user's reputation\n/setrep - Forces a user's rep to be set to the value you provide\n/resetrep - Resets a user's reputation to zero\n/pin - Pins a message in the group that it's replied to\n/pinall - Broadcasts the message in all groups and pins it\n/unpin - Unpins a message in the group by its ID\n/unpinall - Globally unpins all pinned messages - !CAUTION!\n"
-		} else {
-			return "Available commands:\n/start - Displays the Welcome message\n/help  - Displays this message\n/top - View the Top 10 Leaderboard 🏆\n/ping - Checks if the bot is alive\n"
-		}
-
-	// --- KEYWORD COMMANDS ---
-
+		return "Available Commands:\n/checkrep, /top\n\nAdmins:\n/setrep, /resetrep\n/addkeyword, /deletekeyword\n/pin, /unpin, /pinall, /unpinall"
 	case "/ping":
-		// if the bot is alive - it'll respond
-		return "PONG!"
+		return "PONG! 🏓"
 
-	case "/addkeyword":
-		// Check if sender is an admin
+	// --- KEYWORDS (DB) ---
+	case "/addkeyword", "/addbadword":
 		if !CheckAdminRights(userID) {
-			return "⛔ Permission Denied: You are not an admin."
+			return "⛔ Admin only."
 		}
-		//if admin - continue:
 		if len(parts) < 2 {
-			return "Usage: /addkeyword <regex pattern or word>"
+			return "Usage: /addkeyword <word>"
 		}
-		pattern := strings.Join(parts[1:], " ")
-		return AddKeyword(pattern, update)
 
-	case "/addbadword":
-		// Check if sender is an admin
-		if !CheckAdminRights(userID) {
-			return "⛔ Permission Denied: You are not an admin."
-		}
-		//if admin - continue:
-		if len(parts) < 2 {
-			return "Usage: /addkeyword <regex pattern or word>"
-		}
+		isNeg := (command == "/addbadword")
 		pattern := strings.Join(parts[1:], " ")
-		return AddNegativeKeyword(pattern, update)
+
+		id, err := DBAddKeyword(pattern, isNeg, update.Message.From.UserName)
+		if err != nil {
+			return fmt.Sprintf("❌ DB Error: %v", err)
+		}
+
+		ReloadKeywords() // Update Cache!
+		return fmt.Sprintf("✅ Added Keyword #%d: '%s'", id, pattern)
 
 	case "/deletekeyword":
-		// Check if sender is an admin
 		if !CheckAdminRights(userID) {
-			return "⛔ Permission Denied: You are not an admin."
+			return "⛔ Admin only."
 		}
-		//if admin - continue:
 		if len(parts) < 2 {
-			return "Usage: /deletekeyword <id>"
+			return "Usage: /deletekeyword <ID>"
 		}
-		return DeleteKeyword(parts[1])
+
+		id, _ := strconv.Atoi(parts[1])
+		if err := DBDeleteKeyword(id); err != nil {
+			return fmt.Sprintf("❌ Error: %v", err)
+		}
+
+		ReloadKeywords() // Update Cache!
+		return fmt.Sprintf("🗑️ Deleted Keyword #%d", id)
 
 	case "/listkeywords":
-		// Check if sender is an admin
 		if !CheckAdminRights(userID) {
-			return "⛔ Permission Denied: You are not an admin."
+			return "⛔ Admin only."
 		}
-		//if admin - continue:
-		return ListKeywords()
+		return DBListKeywords()
 
-	// --- REPUTATION COMMANDS ---
+	// --- REPUTATION (DB) ---
 	case "/checkrep":
-		// /checkrep [optional: @username]
-		// Returns the user's current reputation
 		targetID, targetName := helperResolveTarget(update, parts)
-
-		// If is -1, the target user couldnt be found via the rep map or reply-to
-		score, err := DBGetReputationScore(targetID) // <--- SQL CALL
-		if err != nil {
-			LogError("❌ ERROR - Failed to get rep for %d: %v", targetID, err)
-			return "⛔ Database Error: Could not fetch score."
-		}
-
-		// If the name is "Unknown", try to use the name from the input
+		score, _ := DBGetReputationScore(targetID)
 		if targetName == "" {
 			targetName = "User"
 		}
 		return fmt.Sprintf("📊 Reputation for %s: %d", targetName, score)
 
 	case "/setrep":
-		// /setrep <amount> (Reply or @Username)
-		// Foreces a user's reputation to be a set value
 		if !CheckAdminRights(userID) {
-			return "⛔ Permission Denied.  You are not an admin."
+			return "⛔ Admin only."
 		}
-
 		if len(parts) < 2 {
-			return "Usage: /setrep <amount> (reply to user)"
+			return "Usage: /setrep <amount>"
 		}
 
-		// Get target info
 		targetID, targetName := helperResolveTarget(update, parts)
+		amount, _ := strconv.Atoi(parts[len(parts)-1])
 
-		//parse the <amount>
-		amountString := parts[len(parts)-1]
-		amount, err := strconv.Atoi(amountString)
+		newScore, err := DBSetReputation(targetID, targetName, amount)
 		if err != nil {
-			return "❌ Error: Invalid amount or user format."
+			return "❌ DB Error"
 		}
-
-		// Set new Rep
-		newReputation, err := DBSetReputation(targetID, targetName, amount)
-		if err != nil {
-			return fmt.Sprintf("⛔ SQL Error: %v", err)
-		}
-		return fmt.Sprintf("✅ Set %s's reputation to %d.", targetName, newReputation)
+		return fmt.Sprintf("✅ Set %s to %d", targetName, newScore)
 
 	case "/resetrep":
-		// Forces the user's rep to zero
-		// Check if sender is an admin
 		if !CheckAdminRights(userID) {
-			return "⛔ Permission Denied: You are not an admin."
+			return "⛔ Admin only."
 		}
-
-		// Get target info
 		targetID, targetName := helperResolveTarget(update, parts)
-
-		_, err := DBSetReputation(targetID, targetName, 0)
-		if err != nil {
-			return fmt.Sprintf("⛔ SQL Error: %v", err)
-		}
-
-		return fmt.Sprintf("🔄 Reset %s's reputation to 0.", targetName)
+		DBSetReputation(targetID, targetName, 0)
+		return fmt.Sprintf("🔄 Reset %s to 0", targetName)
 
 	case "/top":
-		// Returns up to 10 with the highest rep in the DBs
 		return DBGetTop10()
 
+	// --- PINS (DB + API) ---
 	case "/pin":
-		// Usage: Reply to a message and type /pin
 		if !CheckAdminRights(userID) {
 			return "⛔ Admin only."
 		}
 		if update.Message.ReplyToMessage == nil {
-			return "⚠️ You must reply to the message you want to pin."
+			return "⚠️ Reply to a message to pin it."
 		}
 
-		// Pass the text so it can be saved in the list
-		text := update.Message.ReplyToMessage.Text
-		return PinMessage(bot, update.Message.Chat.ID, update.Message.ReplyToMessage.MessageID, update.Message.From.FirstName, text)
+		reply := update.Message.ReplyToMessage
+		// 1. API Call
+		if _, err := bot.Request(tgbotapi.PinChatMessageConfig{ChatID: update.Message.Chat.ID, MessageID: reply.MessageID}); err != nil {
+			return "⚠️ Failed to pin (Check Bot Permissions)."
+		}
+		// 2. DB Save
+		id, _ := DBPinMessage(update.Message.Chat.ID, reply.MessageID, update.Message.From.FirstName, reply.Text)
+		return fmt.Sprintf("📌 Pinned! (ID: #%d)", id)
 
 	case "/unpin":
-		// Usage: /unpin <ID>
 		if !CheckAdminRights(userID) {
-			return "⛔ Permission Denied: You are not an admin."
+			return "⛔ Admin only."
 		}
-
 		if len(parts) < 2 {
-			return "Usage: /unpin <Pin ID#> (e.g. /unpin 5)"
+			return "Usage: /unpin <ID>"
 		}
 
-		id, err := strconv.Atoi(parts[1])
+		id, _ := strconv.Atoi(parts[1])
+		chatID, msgID, err := DBUnpinByID(id)
 		if err != nil {
-			return "Error: Pin ID must be a number."
-		}
-		return UnpinByID(bot, id)
-
-	case "/unpinall":
-		// Usage: /unpinall confirm
-		if !CheckAdminRights(userID) {
-			return "⛔ Permission Denied: You are not an admin."
+			return "⚠️ Pin ID not found."
 		}
 
-		// Check if the user added the "confirm" argument - early return if not passed
-		if len(parts) < 2 || !strings.EqualFold(parts[1], "confirm") {
-			return "⚠️ SAFETY CHECK: This will unpin ALL messages in ALL groups.\n\nTo proceed, you must type:\n`/unpinall confirm`"
-		}
-
-		// If they typed "/unpinall confirm", run the function
-		return UnpinAllGlobal(bot)
-
-	case "/pinall":
-		// Usage: /pinall <message text>
-		if !CheckAdminRights(userID) {
-			return "⛔ Permission Denied: You are not an admin."
-		}
-
-		if len(parts) < 2 {
-			return "Usage: /pinall <text to broadcast and pin>"
-		}
-
-		text := strings.Join(parts[1:], " ")
-		return BroadcastAndPin(bot, text, update.Message.From.FirstName)
+		// API Call
+		bot.Request(tgbotapi.UnpinChatMessageConfig{ChatID: chatID, MessageID: msgID})
+		return fmt.Sprintf("🗑️ Unpinned #%d", id)
 
 	case "/listpins":
+		return DBListPins(update.Message.Chat.ID)
+
+	case "/pinall":
 		if !CheckAdminRights(userID) {
-			return "⛔ Permission Denied: You are not an admin."
+			return "⛔ Admin only."
 		}
-		return HelperListPins(update.Message.Chat.ID)
-
-	// -- DEPRICATED -- //
-	/*case "/decrement":
-	// Decrements a user's rep by 1
-	// Check if sender is an admin
-	if !CheckAdminRights(userID) {
-		return "⛔ Permission Denied: You are not an admin."
-	}
-
-	// Get target info
-	targetID, targetName := helperResolveTarget(update, parts)
-	if targetID == 0 {
-		return "Error: No user specified."
-	}
-
-	newReputation, _ := DecreaseReputation(targetID, targetName)
-	return fmt.Sprintf("🔻 Decreased %s's rep by 1. Total: %d", targetName, newReputation)
-
-		// --- DB TEST COMMANDS --- //
-	case "/testdb":
-		newScore, err := DBAddReputation(userID, update.Message.From.UserName)
-		if err != nil {
-			return fmt.Sprintf("❌ SQL Error: %v", err)
+		if len(parts) < 2 {
+			return "Usage: /pinall <text>"
 		}
+		text := strings.Join(parts[1:], " ")
+		return helperBroadcastAndPin(bot, text, update.Message.From.FirstName)
 
-		return fmt.Sprintf("✅ SQL SUCCESS! I added +1 to your rep in the Postgres DB.\nNew DB Score: %d", newScore)*/
-
-	default:
-		return "Sorry, I did not recognise that command, try running /help."
+	case "/unpinall":
+		if !CheckAdminRights(userID) {
+			return "⛔ Admin only."
+		}
+		if len(parts) < 2 || parts[1] != "confirm" {
+			return "⚠️ Type `/unpinall confirm` to unpin EVERYTHING everywhere."
+		}
+		return helperGlobalUnpin(bot)
 	}
+	return ""
 }
 
-// --- HELPERS ---
+// --- LOGIC HELPERS ---
 
-// Helper: Determines who the command is targeting
-// Priority: 1. Reply User, 2. @Mention or ID in args, 3. Self
 func helperResolveTarget(update *tgbotapi.Update, args []string) (int64, string) {
-	// 1. Check for Reply
 	if update.Message.ReplyToMessage != nil {
-		user := update.Message.ReplyToMessage.From
-		return user.ID, user.UserName
+		return update.Message.ReplyToMessage.From.ID, update.Message.ReplyToMessage.From.UserName
 	}
-
-	// 2. Check for Arguments (@User)
 	if len(args) > 1 {
-		possibleName := args[1]
-
-		// Check if arg is a Name (not a number)
-		// We use Atoi to make sure we don't catch "/setrep 100" as a username
-		if _, err := strconv.Atoi(possibleName); err != nil {
-			id := HelperFindUserID(possibleName)
-			return id, possibleName
+		// Try to look up by name in DB
+		if id := DBFindUserID(args[1]); id != 0 {
+			return id, args[1]
 		}
 	}
-
-	// 3. Default to Self (Sender)
-	// Only reached if: No Reply AND (No args OR Arg was a number)
 	return update.Message.From.ID, update.Message.From.UserName
+}
+
+func helperBroadcastAndPin(bot *tgbotapi.BotAPI, text, pinner string) string {
+	groups, err := DBGetKnownGroups()
+	if err != nil {
+		return "❌ DB Error getting groups."
+	}
+
+	count := 0
+	for _, chatID := range groups {
+		// 1. Send
+		msg, err := bot.Send(tgbotapi.NewMessage(chatID, text))
+		if err == nil {
+			// 2. Pin
+			bot.Request(tgbotapi.PinChatMessageConfig{ChatID: chatID, MessageID: msg.MessageID})
+			// 3. Save
+			DBPinMessage(chatID, msg.MessageID, pinner, text)
+			count++
+		}
+	}
+	return fmt.Sprintf("📢 Broadcasted & Pinned to %d groups!", count)
+}
+
+func helperGlobalUnpin(bot *tgbotapi.BotAPI) string {
+	groups, _ := DBGetKnownGroups()
+	for _, chatID := range groups {
+		// API Unpin All
+		bot.Request(tgbotapi.UnpinAllChatMessagesConfig{ChatID: chatID})
+		// DB Clear
+		DBUnpinAllInChat(chatID)
+	}
+	return "🌍 Global Unpin Complete."
 }

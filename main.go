@@ -34,7 +34,7 @@ func main() { // Main function is the entry point of the program
 	handlers.InitDB()
 
 	// Loads the keywords from disk from handlers/maps/mapsKeywords.json
-	if err := handlers.LoadKeywordFromFile(); err != nil {
+	if err := handlers.ReloadKeywords(); err != nil {
 		handlers.LogError("Warning: Could not load keywords file: %v", err)
 	}
 

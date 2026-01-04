@@ -9,7 +9,7 @@ import (
 	_ "github.com/lib/pq" // Postgres driver
 )
 
-var DataBase *sql.DB
+var DB *sql.DB
 
 // --- INTIALISE DB --- //
 func InitDB() {
@@ -22,7 +22,7 @@ func InitDB() {
 	}
 
 	var err error
-	DataBase, err = sql.Open("postgres", connStr)
+	DB, err = sql.Open("postgres", connStr)
 
 	if err != nil {
 		// LOG AND CRASH - CRITICAL
@@ -31,14 +31,14 @@ func InitDB() {
 	}
 
 	// Verify connection
-	if err = DataBase.Ping(); err != nil {
+	if err = DB.Ping(); err != nil {
 		LogError("❌ FATAL: Could not reach DB container. Is Podman running? Error: %v", err)
 		os.Exit(1)
 	}
 
 	// Optimisation : connection pooling
-	DataBase.SetMaxOpenConns(25)
-	DataBase.SetMaxIdleConns(5)
+	DB.SetMaxOpenConns(25)
+	DB.SetMaxIdleConns(5)
 	// Creates the tables if they don't exist yet
 	createTables()
 
@@ -75,7 +75,7 @@ func createTables() {
 	}
 
 	for _, query := range queries {
-		_, err := DataBase.Exec(query)
+		_, err := DB.Exec(query)
 		if err != nil {
 			LogError("❌ ERROR - Database Table Creation Failed:\nQuery: %s\nError: %v", query, err)
 		}
@@ -96,7 +96,7 @@ func DBAddReputation(userID int64, username string) (int, error) {
 
 	// We pass only 2 arguments: userID ($1) and username ($2)
 	// The '1' is hardcoded in the query above.
-	_, err := DataBase.Exec(query, userID, username)
+	_, err := DB.Exec(query, userID, username)
 
 	if err != nil {
 		return 0, err
@@ -112,7 +112,7 @@ func DBDecreaseReputation(userID int64, username string) (int, error) {
 	ON CONFLICT (user_id)
 	DO UPDATE SET score = reputation.score -1;
 	`
-	_, err := DataBase.Exec(query, userID, username)
+	_, err := DB.Exec(query, userID, username)
 	if err != nil {
 		return 0, err
 	}
@@ -122,19 +122,19 @@ func DBDecreaseReputation(userID int64, username string) (int, error) {
 func DBSetReputation(userID int64, username string, val int) (int, error) {
 	username = helperEnsureAtPrefix(username)
 	query := `
-	INSERT INTO reputation(user_id, usernamem, score)
+	INSERT INTO reputation(user_id, username, score)
 	VALUES ($1, $2, $3)
 	ON CONFLICT (user_id)
 	DO UPDATE SET score = $3;
 	`
-	_, err := DataBase.Exec(query, userID, username, val)
+	_, err := DB.Exec(query, userID, username, val)
 	return val, err
 }
 
 func DBGetReputationScore(userID int64) (int, error) {
 	var score int
 
-	err := DataBase.QueryRow("SELECT score FROM reputation Where user_id = $1", userID).Scan(&score)
+	err := DB.QueryRow("SELECT score FROM reputation Where user_id = $1", userID).Scan(&score)
 
 	if err == sql.ErrNoRows {
 		// If user doesnt exist yet, return 0 (not an error)
@@ -144,7 +144,7 @@ func DBGetReputationScore(userID int64) (int, error) {
 }
 
 func DBGetTop10() string {
-	rows, err := DataBase.Query("SELECT username, score FROM reputation ORDER BY score DESC LIMIT 10")
+	rows, err := DB.Query("SELECT username, score FROM reputation ORDER BY score DESC LIMIT 10")
 	if err != nil {
 		LogError("❌ ERROR - Failed to fetch Top 10: %v", err)
 		return "Error fetching leaderboard."
@@ -165,10 +165,23 @@ func DBGetTop10() string {
 	return sb.String()
 }
 
+func DBFindUserID(username string) int64 {
+	target := username
+	if !strings.HasPrefix(target, "@") {
+		target = "@" + target
+	}
+	var id int64
+	err := DB.QueryRow("SELECT user_id FROM reputation WHERE lower(username) = lower($1)", target).Scan(&id)
+	if err != nil {
+		return 0
+	}
+	return id
+}
+
 // --- SQL | KEYWORD HANDLERS --- //
 func DBAddKeyword(pattern string, isNegative bool, addedBy string) (int, error) {
 	var id int
-	err := DataBase.QueryRow(
+	err := DB.QueryRow(
 		`INSERT INTO keywords (pattern, is_negative, added_by)
 		VALUES ($1, $2, $3) RETURNING id`,
 		pattern, isNegative, addedBy).Scan(&id)
@@ -176,7 +189,7 @@ func DBAddKeyword(pattern string, isNegative bool, addedBy string) (int, error) 
 }
 
 func DBDeleteKeyword(id int) error {
-	result, err := DataBase.Exec("DELETE FROM keywords WHERE id = $1", id)
+	result, err := DB.Exec("DELETE FROM keywords WHERE id = $1", id)
 	if err != nil {
 		return err
 	}
@@ -188,7 +201,7 @@ func DBDeleteKeyword(id int) error {
 }
 
 func DBListKeywords() string {
-	rows, err := DataBase.Query("SELECT id, pattern, is_negative, added_by FROM keywords ORDER BY id DESC")
+	rows, err := DB.Query("SELECT id, pattern, is_negative, added_by FROM keywords ORDER BY id DESC")
 	if err != nil {
 		return "Error fetching keywords."
 	}
@@ -212,6 +225,22 @@ func DBListKeywords() string {
 	return sb.String()
 }
 
+func DBLoadKeywords() ([]Keyword, error) {
+	rows, err := DB.Query("SELECT id, pattern, is_negative, added_by FROM keywords")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []Keyword
+	for rows.Next() {
+		var keyword Keyword
+		rows.Scan(&keyword.ID, &keyword.Pattern, &keyword.AddedBy)
+		list = append(list, keyword)
+	}
+	return list, nil
+}
+
 // --- SQL | PIN HANDLERS --- //
 func DBPinMessage(chatID int64, messageID int, pinner, text string) (int, error) {
 	var id int
@@ -219,7 +248,7 @@ func DBPinMessage(chatID int64, messageID int, pinner, text string) (int, error)
 		text = text[:47] + "..."
 	}
 
-	err := DataBase.QueryRow(`
+	err := DB.QueryRow(`
 		INSERT INTO pins (chat_id, message_id, pinned_by, text_snippet)
 		VALUES ($1, $2, $3, $4) RETURNING internal_id`,
 		chatID, messageID, pinner, text).Scan(&id)
@@ -229,21 +258,21 @@ func DBPinMessage(chatID int64, messageID int, pinner, text string) (int, error)
 func DBUnpinByID(internalID int) (int64, int, error) {
 	var chatID int64
 	var msgID int
-	err := DataBase.QueryRow("DELETE FROM pins WHERE internal_id = $1 RETURNING chat_id, message_id", internalID).Scan(&chatID, &msgID)
+	err := DB.QueryRow("DELETE FROM pins WHERE internal_id = $1 RETURNING chat_id, message_id", internalID).Scan(&chatID, &msgID)
 	return chatID, msgID, err
 }
 
 func DBUnpinAllInChat(chatID int64) error {
-	_, err := DataBase.Exec("DELETE FROM pins WHERE chat_id = $1", chatID)
+	_, err := DB.Exec("DELETE FROM pins WHERE chat_id = $1", chatID)
 	return err
 }
 
 func DBRegisterGroup(chatID int64) {
-	DataBase.Exec("INSERT INTO pin_groups (chat_id) VALUES ($1) ON CONFLICT DO NOTHING", chatID)
+	DB.Exec("INSERT INTO pin_groups (chat_id) VALUES ($1) ON CONFLICT DO NOTHING", chatID)
 }
 
 func DBGetKnownGroups() ([]int64, error) {
-	rows, err := DataBase.Query("SELECT chat_id FROM pin_groups")
+	rows, err := DB.Query("SELECT chat_id FROM pin_groups")
 	if err != nil {
 		return nil, err
 	}
@@ -259,7 +288,7 @@ func DBGetKnownGroups() ([]int64, error) {
 }
 
 func DBListPins(chatID int64) string {
-	rows, err := DataBase.Query("SELECT internal_id, text_snippet, pinned_by FROM pins WHERE chat_id = $1 ORDER BY internal_id ASC", chatID)
+	rows, err := DB.Query("SELECT internal_id, text_snippet, pinned_by FROM pins WHERE chat_id = $1 ORDER BY internal_id ASC", chatID)
 	if err != nil {
 		return "Error loading pins."
 	}
