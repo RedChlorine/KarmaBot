@@ -85,8 +85,6 @@ func main() { // Main function is the entry point of the program
 				if shouldReplyToMessage {
 					msg.ReplyToMessageID = update.Message.MessageID
 				}
-				// ------------------------------
-
 				bot.Send(msg)
 			}
 		}
