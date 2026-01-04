@@ -43,6 +43,7 @@ func PinMessage(bot *tgbotapi.BotAPI, chatID int64, messageID int, pinner string
 	}
 	// Sends ERROR if the request to pin failed
 	if _, err := bot.Request(pinConfig); err != nil {
+		LogError("Failed to PIN message in Chat %d: %v", chatID, err)
 		return fmt.Sprintf("⚠️ ERROR: Failed to pin message: %v", err)
 	}
 
@@ -88,6 +89,7 @@ func UnpinByID(bot *tgbotapi.BotAPI, id int) string {
 	}
 	// Sends ERROR if the request to unpin failed
 	if _, err := bot.Request(unpinConfig); err != nil {
+		LogError("Failed to UNPIN message %d: %v", entry.MessageID, err)
 		return fmt.Sprintf("⚠️ ERROR: Failed to unpin (maybe it was already deleted?): %v", err)
 	}
 

@@ -65,6 +65,7 @@ func CheckMessageKeywords(update *tgbotapi.Update) string {
 		if matchedKeyword.IsNegative {
 			newReputation, err = DecreaseReputation(toUser.ID, toUser.UserName)
 			if err != nil {
+				LogError("DB Save Failed (Decrease Rep) for %s: %v", toUser.UserName, err)
 				return "⛔ERROR: Could not update reputation Databse: Inform an admin.⛔"
 			}
 
@@ -75,6 +76,7 @@ func CheckMessageKeywords(update *tgbotapi.Update) string {
 			// IF POS keyword => INCREMENT (DEFAULT ACTION)
 			newReputation, err = AddReputation(toUser.ID, toUser.UserName)
 			if err != nil {
+				LogError("DB Save Failed (Increase Rep) for %s: %v", toUser.UserName, err)
 				return "⛔ERROR: Could not update reputation Databse: Inform an admin.⛔"
 			}
 

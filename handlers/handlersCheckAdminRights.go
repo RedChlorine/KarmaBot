@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -13,7 +12,7 @@ func CheckAdminRights(userID int64) bool {
 	adminEnv := os.Getenv("ADMIN_ID")
 
 	if adminEnv == "" {
-		log.Println("WARNING: no ADMIN_IDs found in the environment variables doc - Admin level commands are inaccessible")
+		LogError("WARNING: no ADMIN_IDs found in the environment variables doc - Admin level commands are inaccessible:")
 		return false
 	}
 
@@ -28,7 +27,7 @@ func CheckAdminRights(userID int64) bool {
 		// Convert env ID to int64 - (store in var, from base10, to int64)
 		TrimmedAdminIdString, err := strconv.ParseInt(adminIdString, 10, 64)
 		if err != nil {
-			log.Printf("WARNING: Invalid Admin ID in Env.env: %s", adminIdString)
+			LogError("WARNING: Invalid Admin ID in Env.env: %s", adminIdString)
 			continue
 		}
 
