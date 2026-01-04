@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"database/sql"
+	"fmt"
 	"os"
+	"strings"
 
 	_ "github.com/lib/pq" // Postgres driver
 )
@@ -75,11 +77,12 @@ func createTables() {
 	for _, query := range queries {
 		_, err := DataBase.Exec(query)
 		if err != nil {
-			LogError("❌ Database Table Creation Failed:\nQuery: %s\nError: %v", query, err)
+			LogError("❌ ERROR - Database Table Creation Failed:\nQuery: %s\nError: %v", query, err)
 		}
 	}
 }
 
+// --- SQL | REPUTATION HANDLERS --- //
 func DBAddReputation(userID int64, username string) (int, error) {
 	username = helperEnsureAtPrefix(username)
 
@@ -98,10 +101,37 @@ func DBAddReputation(userID int64, username string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	return DBGetReputationSCore(userID)
+	return DBGetReputationScore(userID)
 }
 
-func DBGetReputationSCore(userID int64) (int, error) {
+func DBDecreaseReputation(userID int64, username string) (int, error) {
+	username = helperEnsureAtPrefix(username)
+	query := `
+	INSERT INTO reputation(user_id, username, score)
+	VALUES($1, $2, -1)
+	ON CONFLICT (user_id)
+	DO UPDATE SET score = reputation.score -1;
+	`
+	_, err := DataBase.Exec(query, userID, username)
+	if err != nil {
+		return 0, err
+	}
+	return DBGetReputationScore(userID)
+}
+
+func DBSetReputation(userID int64, username string, val int) (int, error) {
+	username = helperEnsureAtPrefix(username)
+	query := `
+	INSERT INTO reputation(user_id, usernamem, score)
+	VALUES ($1, $2, $3)
+	ON CONFLICT (user_id)
+	DO UPDATE SET score = $3;
+	`
+	_, err := DataBase.Exec(query, userID, username, val)
+	return val, err
+}
+
+func DBGetReputationScore(userID int64) (int, error) {
 	var score int
 
 	err := DataBase.QueryRow("SELECT score FROM reputation Where user_id = $1", userID).Scan(&score)
@@ -111,4 +141,142 @@ func DBGetReputationSCore(userID int64) (int, error) {
 		return 0, nil
 	}
 	return score, err
+}
+
+func DBGetTop10() string {
+	rows, err := DataBase.Query("SELECT username, score FROM reputation ORDER BY score DESC LIMIT 10")
+	if err != nil {
+		LogError("❌ ERROR - Failed to fetch Top 10: %v", err)
+		return "Error fetching leaderboard."
+	}
+	defer rows.Close()
+
+	var sb strings.Builder
+	sb.WriteString("🏆 **Reputation Leaderboard** 🏆\n\n")
+
+	i := 1
+	for rows.Next() {
+		var name string
+		var score int
+		rows.Scan(&name, &score)
+		fmt.Fprintf(&sb, "%d. %s | %d\n", i, name, score)
+		i++
+	}
+	return sb.String()
+}
+
+// --- SQL | KEYWORD HANDLERS --- //
+func DBAddKeyword(pattern string, isNegative bool, addedBy string) (int, error) {
+	var id int
+	err := DataBase.QueryRow(
+		`INSERT INTO keywords (pattern, is_negative, added_by)
+		VALUES ($1, $2, $3) RETURNING id`,
+		pattern, isNegative, addedBy).Scan(&id)
+	return id, err
+}
+
+func DBDeleteKeyword(id int) error {
+	result, err := DataBase.Exec("DELETE FROM keywords WHERE id = $1", id)
+	if err != nil {
+		return err
+	}
+	count, _ := result.RowsAffected()
+	if count == 0 {
+		return fmt.Errorf("No keyword found with ID %d", id)
+	}
+	return nil
+}
+
+func DBListKeywords() string {
+	rows, err := DataBase.Query("SELECT id, pattern, is_negative, added_by FROM keywords ORDER BY id DESC")
+	if err != nil {
+		return "Error fetching keywords."
+	}
+	defer rows.Close()
+
+	var sb strings.Builder
+	sb.WriteString("📜 **Current Keywords** (Newest First):\n")
+
+	for rows.Next() {
+		var id int
+		var pattern, addedBy string
+		var isNeg bool
+		rows.Scan(&id, &pattern, &isNeg, &addedBy)
+
+		tag := "✅"
+		if isNeg {
+			tag = "⛔ [NEG]"
+		}
+		fmt.Fprintf(&sb, "#%d %s: \"%s\" (by @%s)\n", id, tag, pattern, addedBy)
+	}
+	return sb.String()
+}
+
+// --- SQL | PIN HANDLERS --- //
+func DBPinMessage(chatID int64, messageID int, pinner, text string) (int, error) {
+	var id int
+	if len(text) > 50 {
+		text = text[:47] + "..."
+	}
+
+	err := DataBase.QueryRow(`
+		INSERT INTO pins (chat_id, message_id, pinned_by, text_snippet)
+		VALUES ($1, $2, $3, $4) RETURNING internal_id`,
+		chatID, messageID, pinner, text).Scan(&id)
+	return id, err
+}
+
+func DBUnpinByID(internalID int) (int64, int, error) {
+	var chatID int64
+	var msgID int
+	err := DataBase.QueryRow("DELETE FROM pins WHERE internal_id = $1 RETURNING chat_id, message_id", internalID).Scan(&chatID, &msgID)
+	return chatID, msgID, err
+}
+
+func DBUnpinAllInChat(chatID int64) error {
+	_, err := DataBase.Exec("DELETE FROM pins WHERE chat_id = $1", chatID)
+	return err
+}
+
+func DBRegisterGroup(chatID int64) {
+	DataBase.Exec("INSERT INTO pin_groups (chat_id) VALUES ($1) ON CONFLICT DO NOTHING", chatID)
+}
+
+func DBGetKnownGroups() ([]int64, error) {
+	rows, err := DataBase.Query("SELECT chat_id FROM pin_groups")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var groups []int64
+	for rows.Next() {
+		var id int64
+		rows.Scan(&id)
+		groups = append(groups, id)
+	}
+	return groups, nil
+}
+
+func DBListPins(chatID int64) string {
+	rows, err := DataBase.Query("SELECT internal_id, text_snippet, pinned_by FROM pins WHERE chat_id = $1 ORDER BY internal_id ASC", chatID)
+	if err != nil {
+		return "Error loading pins."
+	}
+	defer rows.Close()
+
+	var sb strings.Builder
+	sb.WriteString("📌 **Active Pins**:\n\n")
+	hasRows := false
+	for rows.Next() {
+		hasRows = true
+		var id int
+		var text, pinner string
+		rows.Scan(&id, &text, &pinner)
+		fmt.Fprintf(&sb, "ID #%d: \"%s\" (by %s)\n\n", id, text, pinner)
+	}
+	if !hasRows {
+		return "No active pins tracked in this chat."
+	}
+	return sb.String()
 }
