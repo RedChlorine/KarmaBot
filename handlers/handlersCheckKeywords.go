@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"regexp"
+	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -50,7 +51,7 @@ func CheckMessageKeywords(update *tgbotapi.Update) string {
 	}
 	text := update.Message.Text
 
-	// Iterate over CACHE, not DB (for speed)
+	// 1. Check for Keyword Match
 	var matchedKeyword Keyword
 	matched := false
 
@@ -61,35 +62,71 @@ func CheckMessageKeywords(update *tgbotapi.Update) string {
 			break
 		}
 	}
-
-	// Logic: If Matched AND is a Reply
-	if matched && update.Message.ReplyToMessage != nil {
-		fromUser := update.Message.From
-		toUser := update.Message.ReplyToMessage.From
-
-		if fromUser.ID == toUser.ID {
-			return fmt.Sprintf("⛔ @%s, you cannot increase your own reputation!", fromUser.UserName)
-		}
-
-		var newRep int
-		var err error
-		var response string
-
-		if matchedKeyword.IsNegative {
-			newRep, err = DBDecreaseReputation(toUser.ID, toUser.UserName)
-			response = fmt.Sprintf("📉 %s -1 Reputation! (Trigger: '%s')\nTotal Rep: %d", formatName(toUser), matchedKeyword.Pattern, newRep)
-		} else {
-			newRep, err = DBAddReputation(toUser.ID, toUser.UserName)
-			response = fmt.Sprintf("🌟 %s +1 Reputation!\nTotal Rep: %d", formatName(toUser), newRep)
-		}
-
-		if err != nil {
-			LogError("DB Rep Update Failed: %v", err)
-			return "⛔ Database Error."
-		}
-		return response
+	if !matched {
+		return ""
 	}
-	return ""
+
+	// 2. Determine the Target User
+	var targetID int64
+	var targetName string
+
+	// PRIORITY A: Is it a Reply?
+	if update.Message.ReplyToMessage != nil {
+		targetUser := update.Message.ReplyToMessage.From
+		targetID = targetUser.ID
+		targetName = targetUser.UserName
+		if targetName == "" {
+			targetName = targetUser.FirstName
+		}
+
+	} else {
+		// PRIORITY B: Is there a @Mention?
+		// Split text into words to find the first valid @username
+		words := strings.Fields(text)
+		for _, word := range words {
+			if strings.HasPrefix(word, "@") {
+				// Clean punctuation (e.g. "Thanks @User!" -> "@User")
+				cleanWord := strings.TrimRight(word, ".,!?:;")
+
+				// Look up this username in our Database
+				foundID := DBFindUserID(cleanWord)
+				if foundID != 0 {
+					targetID = foundID
+					targetName = cleanWord
+					break
+				}
+			}
+		}
+	}
+
+	// 3. If no target found, stop here
+	if targetID == 0 {
+		return ""
+	}
+
+	// 4. Anti-Farming: Prevent users from repping themselves
+	if update.Message.From.ID == targetID {
+		return fmt.Sprintf("⛔ @%s, you cannot increase your own reputation!", update.Message.From.UserName)
+	}
+
+	// 5. Apply Reputation Change
+	var newRep int
+	var err error
+	var response string
+
+	if matchedKeyword.IsNegative {
+		newRep, err = DBDecreaseReputation(targetID, targetName)
+		response = fmt.Sprintf("📉 %s -1 Rep (Trigger: '%s')\nTotal: %d", helperEnsureAtPrefix(targetName), matchedKeyword.Pattern, newRep)
+	} else {
+		newRep, err = DBAddReputation(targetID, targetName)
+		response = fmt.Sprintf("🌟 %s +1 Rep!\nTotal: %d", helperEnsureAtPrefix(targetName), newRep)
+	}
+
+	if err != nil {
+		LogError("DB Rep Update Failed: %v", err)
+		return "⛔ Database Error."
+	}
+	return response
 }
 
 func formatName(user *tgbotapi.User) string {
