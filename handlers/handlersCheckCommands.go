@@ -108,7 +108,11 @@ func CheckCommands(bot *tgbotapi.BotAPI, update *tgbotapi.Update) string {
 		targetID, targetName := helperResolveTarget(update, parts)
 
 		// If is -1, the target user couldnt be found via the rep map or reply-to
-		score, _ := GetReputation(targetID)
+		score, err := DBGetReputationScore(targetID) // <--- SQL CALL
+		if err != nil {
+			LogError("❌ ERROR - Failed to get rep for %d: %v", targetID, err)
+			return "⛔ Database Error: Could not fetch score."
+		}
 
 		// If the name is "Unknown", try to use the name from the input
 		if targetName == "" {
@@ -130,19 +134,18 @@ func CheckCommands(bot *tgbotapi.BotAPI, update *tgbotapi.Update) string {
 		// Get target info
 		targetID, targetName := helperResolveTarget(update, parts)
 
-		if targetID == 0 {
-			return fmt.Sprintf("❌ Error: User '%s' not found in Reputation map. The bot can only manage users who have spoken before.", targetName)
-		}
-
 		//parse the <amount>
 		amountString := parts[len(parts)-1]
 		amount, err := strconv.Atoi(amountString)
 		if err != nil {
-			return "Error: No user specified (Reply or @User)."
+			return "❌ Error: Invalid amount or user format."
 		}
 
 		// Set new Rep
-		newReputation, _ := SetReputation(targetID, targetName, amount)
+		newReputation, err := DBSetReputation(targetID, targetName, amount)
+		if err != nil {
+			return fmt.Sprintf("⛔ SQL Error: %v", err)
+		}
 		return fmt.Sprintf("✅ Set %s's reputation to %d.", targetName, newReputation)
 
 	case "/resetrep":
@@ -154,17 +157,17 @@ func CheckCommands(bot *tgbotapi.BotAPI, update *tgbotapi.Update) string {
 
 		// Get target info
 		targetID, targetName := helperResolveTarget(update, parts)
-		if targetID == 0 {
-			return "Error: No user specified."
+
+		_, err := DBSetReputation(targetID, targetName, 0)
+		if err != nil {
+			return fmt.Sprintf("⛔ SQL Error: %v", err)
 		}
 
-		SetReputation(targetID, targetName, 0)
-		newReputation, _ := GetReputation(targetID)
-		return fmt.Sprintf("🔄 Reset %s's reputation.\nReputation: %d", targetName, newReputation)
+		return fmt.Sprintf("🔄 Reset %s's reputation to 0.", targetName)
 
 	case "/top":
 		// Returns up to 10 with the highest rep in the DBs
-		return GetTopReputation()
+		return DBGetTop10()
 
 	case "/pin":
 		// Usage: Reply to a message and type /pin
@@ -228,15 +231,6 @@ func CheckCommands(bot *tgbotapi.BotAPI, update *tgbotapi.Update) string {
 		}
 		return HelperListPins(update.Message.Chat.ID)
 
-	// --- DB TEST COMMANDS --- //
-	case "/testdb":
-		newScore, err := DBAddReputation(userID, update.Message.From.UserName)
-		if err != nil {
-			return fmt.Sprintf("❌ SQL Error: %v", err)
-		}
-
-		return fmt.Sprintf("✅ SQL SUCCESS! I added +1 to your rep in the Postgres DB.\nNew DB Score: %d", newScore)
-
 	// -- DEPRICATED -- //
 	/*case "/decrement":
 	// Decrements a user's rep by 1
@@ -252,7 +246,16 @@ func CheckCommands(bot *tgbotapi.BotAPI, update *tgbotapi.Update) string {
 	}
 
 	newReputation, _ := DecreaseReputation(targetID, targetName)
-	return fmt.Sprintf("🔻 Decreased %s's rep by 1. Total: %d", targetName, newReputation)*/
+	return fmt.Sprintf("🔻 Decreased %s's rep by 1. Total: %d", targetName, newReputation)
+
+		// --- DB TEST COMMANDS --- //
+	case "/testdb":
+		newScore, err := DBAddReputation(userID, update.Message.From.UserName)
+		if err != nil {
+			return fmt.Sprintf("❌ SQL Error: %v", err)
+		}
+
+		return fmt.Sprintf("✅ SQL SUCCESS! I added +1 to your rep in the Postgres DB.\nNew DB Score: %d", newScore)*/
 
 	default:
 		return "Sorry, I did not recognise that command, try running /help."
