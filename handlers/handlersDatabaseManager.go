@@ -5,11 +5,16 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 
 	_ "github.com/lib/pq" // Postgres driver
 )
 
-var DB *sql.DB
+var (
+	DB         *sql.DB
+	userCache  = make(map[int64]string)
+	cacheMutex sync.RWMutex
+)
 
 // --- INTIALISE DB --- //
 func InitDB() {
@@ -39,28 +44,45 @@ func InitDB() {
 	// Optimisation : connection pooling
 	DB.SetMaxOpenConns(25)
 	DB.SetMaxIdleConns(5)
-	// Creates the tables if they don't exist yet
-	createTables()
+
+	if err := DBCreateTables(); err != nil {
+		LogError("❌ FATAL: Table creation failed: %v", err)
+		os.Exit(1)
+	}
 
 	LogInfo("✅ Database Connected & Tables Ready!")
 }
 
-func createTables() {
+func DBCreateTables() error {
+	// --- CHECK IF DB IS EMPTY --- //
+	// - Check if Reputation table exists
+	var exists bool
+	checkQuery := "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'reputation');"
+	err := DB.QueryRow(checkQuery).Scan(&exists)
+
+	if err != nil {
+		LogError("❌ ERROR: Failed to check if reputation table exists %v", err) // Log Channel
+		return fmt.Errorf("❌ ERROR: Failed to check if reputation table exists %v", err)
+	}
+
+	// If the tables dont exist - PANIC!!
+	if !exists {
+		LogError("⚠️ **WARNING: NEW DATABASE DETECTED** ⚠️\n\nNo tables found. Creating new tables now...\n(If this is a migration, verify the DB_CONNECTION_STRING!")
+	}
+
+	// Create Tables
 	queries := []string{
-		// 1. Reputation Table
 		`CREATE TABLE IF NOT EXISTS reputation (
 			user_id BIGINT PRIMARY KEY,
 			username TEXT NOT NULL,
 			score INT DEFAULT 0
 		);`,
-		// 2. Keywords Table
 		`CREATE TABLE IF NOT EXISTS keywords (
 			id SERIAL PRIMARY KEY,
 			pattern TEXT NOT NULL,
 			is_negative BOOLEAN DEFAULT FALSE,
 			added_by TEXT
 		);`,
-		// 3. Pins Table
 		`CREATE TABLE IF NOT EXISTS pins (
 			internal_id SERIAL PRIMARY KEY,
 			chat_id BIGINT NOT NULL,
@@ -68,7 +90,6 @@ func createTables() {
 			pinned_by TEXT,
 			text_snippet TEXT
 		);`,
-		// 4. Pin Groups Table (for /pinall)
 		`CREATE TABLE IF NOT EXISTS pin_groups (
 			chat_id BIGINT PRIMARY KEY
 		);`,
@@ -77,9 +98,62 @@ func createTables() {
 	for _, query := range queries {
 		_, err := DB.Exec(query)
 		if err != nil {
-			LogError("❌ ERROR - Database Table Creation Failed:\nQuery: %s\nError: %v", query, err)
+			return err
 		}
 	}
+	return nil
+}
+
+// --- OPTIMIZED USER CACHE --- //
+func DBInitUserCache() {
+	rows, err := DB.Query("SELECT user_id, username FROM reputation")
+	if err != nil {
+		LogError("⚠️ WARNING: Failed to load user cache: %v", err)
+		return
+	}
+	defer rows.Close()
+
+	cacheMutex.Lock()
+	defer cacheMutex.Unlock()
+
+	count := 0
+	for rows.Next() {
+		var id int64
+		var name string
+		rows.Scan(&id, &name)
+		userCache[id] = name
+		count++
+	}
+	LogInfo("🧠 User Cache Loaded: %d users in memory.", count)
+}
+
+func DBEnsureUserExists(userID int64, username string) {
+	username = helperEnsureAtPrefix(username)
+
+	cacheMutex.RLock()
+	cachedName, exists := userCache[userID]
+	cacheMutex.RUnlock()
+
+	if exists && cachedName == username {
+		return
+	}
+
+	cacheMutex.Lock()
+	userCache[userID] = username
+	cacheMutex.Unlock()
+
+	go func() {
+		query := `
+			INSERT INTO reputation (user_id, username, score)
+			VALUES ($1, $2, 0)
+			ON CONFLICT (user_id) 
+			DO UPDATE SET username = $2;
+		`
+		_, err := DB.Exec(query, userID, username)
+		if err != nil {
+			LogError("Failed to register user %s: %v", username, err)
+		}
+	}()
 }
 
 // --- SQL | REPUTATION HANDLERS --- //
