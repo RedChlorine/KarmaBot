@@ -48,7 +48,7 @@ func main() { // Main function is the entry point of the program
 	handlers.LoadPinManager()
 
 	// --- DEBUG --- //
-	bot.Debug = true
+	bot.Debug = false
 
 	// --- STARTUP NOTIFICATION --- //
 	handlers.LogInfo("🟢 KarmaBot is up and running!")
