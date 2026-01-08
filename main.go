@@ -4,6 +4,8 @@ package main // Defines the main package for your executable application
 import (
 	"log" // Used for logging errors and information to the console
 	"os"  // Used to access environment variables
+	"os/signal"
+	"syscall"
 
 	"karmabotv02/handlers"
 
@@ -33,14 +35,12 @@ func main() { // Main function is the entry point of the program
 	// --- INITIALISE DATABASE --- //
 	handlers.InitDB()
 
+	// --- INITIALISE DB CACHE --- //
+	handlers.DBInitUserCache()
+
 	// Loads the keywords from disk from handlers/maps/mapsKeywords.json
 	if err := handlers.ReloadKeywords(); err != nil {
 		handlers.LogError("Warning: Could not load keywords file: %v", err)
-	}
-
-	// Loads the reputation from disk from handlers/maps/mapsReputation.json
-	if err := handlers.LoadReputationFromFile(); err != nil {
-		handlers.LogError("Warning: Could not load reputation file: %v", err)
 	}
 
 	// --- LOAD PIN MESSAGE DATA --- //
@@ -60,36 +60,54 @@ func main() { // Main function is the entry point of the program
 	// Requests an Updates channel based on the update configuration
 	updates := bot.GetUpdatesChan(update)
 
-	// Loops over incoming updates received in the channel
-	for update := range updates {
-		// Checks if the update contains a message (ignores other update types)
-		if update.Message != nil {
-			//Check message for commands
-			reply := handlers.CheckCommands(bot, &update)
-			isCommand := reply != "" // Flag to remember if this was a command
+	go func() {
+		// Loops over incoming updates received in the channel
+		for update := range updates {
+			// Checks if the update contains a message (ignores other update types)
+			if update.Message != nil {
+				// Passive Registration
+				handlers.DBEnsureUserExists(update.Message.From.ID, update.Message.From.UserName)
 
-			// 2. If not a command, Check for Keywords
-			if reply == "" {
-				reply = handlers.CheckMessageKeywords(&update)
-			}
+				//Check message for commands
+				reply := handlers.CheckCommands(bot, &update)
+				isCommand := reply != "" // Flag to remember if this was a command
 
-			if reply != "" {
-				msg := tgbotapi.NewMessage(update.Message.Chat.ID, reply)
-
-				// If it is a COMMAND in a GROUP, the user message was auto-deleted.
-				// We MUST NOT reply to it, or the API will error - RACE CONDITION
-				shouldReplyToMessage := true
-
-				if isCommand && update.Message.Chat.Type != "private" {
-					shouldReplyToMessage = false
+				// 2. If not a command, Check for Keywords
+				if reply == "" {
+					reply = handlers.CheckMessageKeywords(&update)
 				}
 
-				// Only attach the ID if the message still exists
-				if shouldReplyToMessage {
-					msg.ReplyToMessageID = update.Message.MessageID
+				if reply != "" {
+					msg := tgbotapi.NewMessage(update.Message.Chat.ID, reply)
+
+					// If it is a COMMAND in a GROUP, the user message was auto-deleted.
+					// We MUST NOT reply to it, or the API will error - RACE CONDITION
+					shouldReplyToMessage := true
+
+					if isCommand && update.Message.Chat.Type != "private" {
+						shouldReplyToMessage = false
+					}
+
+					// Only attach the ID if the message still exists
+					if shouldReplyToMessage {
+						msg.ReplyToMessageID = update.Message.MessageID
+					}
+					bot.Send(msg)
 				}
-				bot.Send(msg)
 			}
 		}
-	}
+	}()
+	// --- SHUTDOWN LISTENER --- //
+	// Make a channel to listen for OS signals
+	sigChan := make(chan os.Signal, 1)
+	// Notify this channel if we receive SIGINT (Ctrl+C) or SIGTERM (Docker stop)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	// Block here until a signal is received
+	<-sigChan
+
+	// 5. Cleanup & Exit
+	handlers.LogInfo("🛑 Shutdown signal received. Cleaning up...")
+	handlers.CloseDB() // <--- Close the DB connection!
+	handlers.LogInfo("👋 Goodbye!")
 }

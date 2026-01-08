@@ -53,6 +53,18 @@ func InitDB() {
 	LogInfo("✅ Database Connected & Tables Ready!")
 }
 
+// CloseDB closes the database connection safely.
+func CloseDB() {
+	if DB != nil {
+		err := DB.Close()
+		if err != nil {
+			LogError("❌ Error closing database: %v", err)
+		} else {
+			LogInfo("🗄️ Database connection closed successfully.")
+		}
+	}
+}
+
 func DBCreateTables() error {
 	// --- CHECK IF DB IS EMPTY --- //
 	// - Check if Reputation table exists
