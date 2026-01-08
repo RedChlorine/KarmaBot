@@ -44,5 +44,5 @@ This version ("v2") has been upgraded from a file-based system to a fully contai
 
 ### 1. Clone the Repository
 ```bash
-git clone [https://github.com/yourusername/karmabotv02.git](https://github.com/yourusername/karmabotv02.git)
+git clone [https://github.com/RedChlorine/karmabotv02.git](https://github.com/RedChlorine/karmabotv02.git)
 cd karmabotv02
