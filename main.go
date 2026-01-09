@@ -14,11 +14,11 @@ import (
 )
 
 func main() { // Main function is the entry point of the program
-	// Loads key/value pairs from Env.env into system environment variables
-	err := godotenv.Load("Env.env")
+	// Loads key/value pairs from .env into system environment variables
+	err := godotenv.Load("Config.env")
 	if err != nil {
-		// If there is an error loading Env.env, log the error and exit the program
-		log.Fatal("Error loading Env.env file")
+		// If there is an error loading .env, log the error and exit the program
+		log.Fatal("Error loading Config.env file")
 	}
 
 	// Retrieves the bot token from the loaded environment variables
