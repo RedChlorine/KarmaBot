@@ -128,7 +128,7 @@ func DBInitUserCache() {
 		userCache[id] = name
 		count++
 	}
-	LogInfo("🧠 User Cache Loaded: \n%d users in memory.", count)
+	LogInfo("🧠 User Cache Loaded: %d users in memory.", count)
 }
 
 func DBEnsureUserExists(userID int64, username string) {
