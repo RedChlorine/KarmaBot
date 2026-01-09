@@ -6,6 +6,37 @@ import (
 	"strings"
 )
 
+func CheckAdminRightsSuper(userID int64) bool {
+	// Gets ID string from Env.env
+	superAdminEnv := os.Getenv("SUPER_ADMIN_ID")
+
+	if superAdminEnv == "" {
+		LogError("WARNING: no SUPER_ADMIN_IDs found in the environment variables doc - Admin level commands are inaccessible:")
+		return false
+	}
+
+	// Split env strings by commas
+	adminIDs := strings.Split(superAdminEnv, ",")
+
+	// Loop through list of IDs to check if userID matches adminID
+	for _, superAdminIdString := range adminIDs {
+		// Strip whitespace
+		superAdminIdString = strings.TrimSpace(superAdminIdString)
+
+		// Convert env ID to int64 - (store in var, from base10, to int64)
+		TrimmedSuperAdminIdString, err := strconv.ParseInt(superAdminIdString, 10, 64)
+		if err != nil {
+			LogError("WARNING: Invalid Admin ID in Env.env: %s", superAdminIdString)
+			continue
+		}
+
+		if TrimmedSuperAdminIdString == userID {
+			return true
+		}
+	}
+	return false
+}
+
 // Checks if a user is in the authorised list of admins for admin-commands - checks Env.env for ID
 func CheckAdminRights(userID int64) bool {
 	// Gets ID string from Env.env
