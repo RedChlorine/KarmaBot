@@ -45,12 +45,19 @@ func InitDB() {
 	DB.SetMaxOpenConns(25)
 	DB.SetMaxIdleConns(5)
 
-	if err := DBCreateTables(); err != nil {
-		LogError("❌ FATAL: Table creation failed: %v", err)
+	// --- CHECK ONLY & DONT CREATE TABLES --- //
+	var exists bool
+	checkQuery := "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'reputation');"
+	err = DB.QueryRow(checkQuery).Scan(&exists)
+	if err != nil {
+		LogError("❌ ERROR: Failed to check if reputation table exists %v", err) // Log Channel
 		os.Exit(1)
 	}
-
-	LogInfo("✅ Database Connected & Tables Ready!")
+	if !exists {
+		LogError("⚠️ **DATABASE CONNECTED BUT EMPTY** ⚠️\n\n❌ FATAL: Tables not found. The bot won't start, database commands will fail.\n\n👉 **Run /setupdb to initialize the schema.**\n(If this is a migration, CHECK YOUR CONNECTION STRING!)")
+	} else {
+		LogInfo("✅ Database Connected & Tables Found.")
+	}
 }
 
 // CloseDB closes the database connection safely.
@@ -66,22 +73,6 @@ func CloseDB() {
 }
 
 func DBCreateTables() error {
-	// --- CHECK IF DB IS EMPTY --- //
-	// - Check if Reputation table exists
-	var exists bool
-	checkQuery := "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'reputation');"
-	err := DB.QueryRow(checkQuery).Scan(&exists)
-
-	if err != nil {
-		LogError("❌ ERROR: Failed to check if reputation table exists %v", err) // Log Channel
-		return fmt.Errorf("❌ ERROR: Failed to check if reputation table exists %v", err)
-	}
-
-	// If the tables dont exist - PANIC!!
-	if !exists {
-		LogError("⚠️ **WARNING: NEW DATABASE DETECTED** ⚠️\n\nNo tables found. Creating new tables now...\n(If this is a migration, verify the DB_CONNECTION_STRING!")
-	}
-
 	// Create Tables
 	queries := []string{
 		`CREATE TABLE IF NOT EXISTS reputation (
@@ -110,6 +101,7 @@ func DBCreateTables() error {
 	for _, query := range queries {
 		_, err := DB.Exec(query)
 		if err != nil {
+			LogError("❌ERROR: Database Table Creation Failed:\nQuery: %s\nError: %v", query, err)
 			return err
 		}
 	}

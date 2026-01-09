@@ -184,7 +184,17 @@ func CheckCommands(bot *tgbotapi.BotAPI, update *tgbotapi.Update) string {
 			return "⚠️ Type `/unpinall confirm` to unpin EVERYTHING everywhere."
 		}
 		return helperGlobalUnpin(bot)
+
+	case "/setupDB":
+		if !CheckAdminRights(userID) {
+			return "⛔ Admin only."
+		}
+		if err := DBCreateTables(); err != nil {
+			return fmt.Sprintf("❌ DB Setup Error: %v", err)
+		}
+		return "✅ Database tables created/verified successfully!"
 	}
+
 	return ""
 }
 
