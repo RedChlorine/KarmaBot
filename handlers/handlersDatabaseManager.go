@@ -31,13 +31,13 @@ func InitDB() {
 
 	if err != nil {
 		// LOG AND CRASH - CRITICAL
-		LogError("❌ FATAL: Could not open DB connection: %v", err)
+		LogError("❌ FATAL: Could not open DB connection:\n%v", err)
 		os.Exit(1)
 	}
 
 	// Verify connection
 	if err = DB.Ping(); err != nil {
-		LogError("❌ FATAL: Could not reach DB container. Is Podman running? Error: %v", err)
+		LogError("❌ FATAL: Could not reach DB container. Is Podman running? \nError: %v", err)
 		os.Exit(1)
 	}
 
@@ -50,7 +50,7 @@ func InitDB() {
 	checkQuery := "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'reputation');"
 	err = DB.QueryRow(checkQuery).Scan(&exists)
 	if err != nil {
-		LogError("❌ ERROR: Failed to check if reputation table exists %v", err) // Log Channel
+		LogError("❌ ERROR: Failed to check if reputation table exists \n%v", err) // Log Channel
 		os.Exit(1)
 	}
 	if !exists {
@@ -65,7 +65,7 @@ func CloseDB() {
 	if DB != nil {
 		err := DB.Close()
 		if err != nil {
-			LogError("❌ Error closing database: %v", err)
+			LogError("❌ Error closing database: \n%v", err)
 		} else {
 			LogInfo("🗄️ Database connection closed successfully.")
 		}
@@ -128,7 +128,7 @@ func DBInitUserCache() {
 		userCache[id] = name
 		count++
 	}
-	LogInfo("🧠 User Cache Loaded: %d users in memory.", count)
+	LogInfo("🧠 User Cache Loaded: \n%d users in memory.", count)
 }
 
 func DBEnsureUserExists(userID int64, username string) {
@@ -224,7 +224,7 @@ func DBGetReputationScore(userID int64) (int, error) {
 func DBGetTop10() string {
 	rows, err := DB.Query("SELECT username, score FROM reputation ORDER BY score DESC LIMIT 10")
 	if err != nil {
-		LogError("❌ ERROR - Failed to fetch Top 10: %v", err)
+		LogError("❌ ERROR - Failed to fetch Top 10:%v", err)
 		return "Error fetching leaderboard."
 	}
 	defer rows.Close()

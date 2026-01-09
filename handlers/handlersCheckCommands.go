@@ -186,8 +186,9 @@ func CheckCommands(bot *tgbotapi.BotAPI, update *tgbotapi.Update) string {
 		return helperGlobalUnpin(bot)
 
 	case "/setupDB":
-		if !CheckAdminRights(userID) {
-			return "⛔ Admin only."
+		if !CheckAdminRightsSuper(userID) {
+			LogInfo("⚠️ UNAUTHERIZED: DB Setup attempt by user %d", userID)
+			return "⛔ Super Admin only."
 		}
 		if err := DBCreateTables(); err != nil {
 			return fmt.Sprintf("❌ DB Setup Error: %v", err)

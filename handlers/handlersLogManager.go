@@ -28,7 +28,7 @@ func InitLogHandler(bot *tgbotapi.BotAPI) {
 		if err != nil {
 			log.Printf("⚠️ WARNING: Could not parse LOG_CHANNEL_ID from .env: %v", err)
 		} else {
-			log.Printf("✅ Log Handler Initialized! Sending logs to Channel ID: %d", logChannelID)
+			log.Printf("[INFO]✅ Log Handler Initialized! Sending logs to Channel ID: %d", logChannelID)
 		}
 	} else {
 		log.Println("ℹ️ NOTE: LOG_CHANNEL_ID is not set in .env. Logs will only print to console.")
@@ -44,14 +44,14 @@ func LogError(format string, args ...any) {
 	log.Printf("[ERROR] %s", message)
 
 	// Send Error to log channel
-	helperSendToLogChannel("⚠️ ERROR:\n" + message)
+	helperSendToLogChannel("⚠️ ERROR:\n\n" + message)
 }
 
 // LogInfo sends an INFO message to the log channel
 func LogInfo(format string, args ...any) {
 	message := fmt.Sprintf(format, args...)
 	log.Printf("[INFO] %s", message)
-	helperSendToLogChannel("ℹ️ INFO:\n" + message)
+	helperSendToLogChannel("ℹ️ INFO:\n\n" + message)
 }
 
 // Helper to send the actual message
