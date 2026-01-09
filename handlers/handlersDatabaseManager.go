@@ -73,6 +73,23 @@ func CloseDB() {
 }
 
 func DBCreateTables() error {
+	// --- CHECK IF DB IS EMPTY --- //
+	// - Check if Reputation table exists
+	var exists bool
+	checkQuery := "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'reputation');"
+	err := DB.QueryRow(checkQuery).Scan(&exists)
+
+	if err != nil {
+		LogError("❌ ERROR: Failed to check if reputation table exists %v", err) // Log Channel
+		return fmt.Errorf("❌ ERROR: Failed to check if reputation table exists %v", err)
+	}
+
+	// If the tables exist - return early
+	if exists {
+		LogError("⚠️ **WARNING: DATABASE DETECTED** ⚠️\n\nTables found. Table creation stopped...\n(If this is a migration, verify the DB_CONNECTION_STRING!")
+		return nil
+	}
+
 	// Create Tables
 	queries := []string{
 		`CREATE TABLE IF NOT EXISTS reputation (
