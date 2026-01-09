@@ -1,9 +1,9 @@
 package handlers
 
 import (
-	"encoding/json"
+	//"encoding/json"
+	//"os"
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -68,7 +68,7 @@ func PinMessage(bot *tgbotapi.BotAPI, chatID int64, messageID int, pinner string
 		TextSnippet: snippet,
 	}
 
-	helperSavePins()
+	//helperSavePins()
 	return fmt.Sprintf("✅ Message Pinned and Saved to DB! (Pin ID: #%d)", id)
 }
 
@@ -95,7 +95,7 @@ func UnpinByID(bot *tgbotapi.BotAPI, id int) string {
 
 	// Delete DB entry
 	delete(pinMap, id)
-	helperSavePins()
+	//helperSavePins()
 
 	return fmt.Sprintf("🗑️ Unpinned message #%d.", id)
 }
@@ -119,7 +119,7 @@ func UnpinAllInChat(bot *tgbotapi.BotAPI, chatID int64) string {
 			delete(pinMap, id)
 		}
 	}
-	helperSavePins()
+	//helperSavePins()
 
 	return "🗑️ All messages in this group have been unpinned in this group."
 }
@@ -201,7 +201,7 @@ func BroadcastAndPin(bot *tgbotapi.BotAPI, baseText string, pinner string) strin
 				PinnedBy:    pinner,
 				TextSnippet: snippet,
 			}
-			helperSavePins()
+			//helperSavePins()
 			pinMutex.Unlock()
 
 			count++
@@ -220,7 +220,7 @@ func HelperRegisterGroup(chatID int64) {
 
 	if _, exists := knownGroups[chatID]; !exists {
 		knownGroups[chatID] = true
-		helperSaveGroups()
+		//helperSaveGroups()
 	}
 }
 
@@ -253,6 +253,15 @@ func HelperListPins(chatID int64) string {
 	return out
 }
 
+/*
+	*************************************
+			--- DEPRICATED ---
+	*************************************
+	We dont dave to local files anymore
+	*************************************
+*/
+
+/*
 // -- Data Persistence -- //
 func helperSavePins() {
 	list := make([]PinEntry, 0, len(pinMap))
@@ -274,6 +283,7 @@ func helperSaveGroups() {
 	data, _ := json.MarshalIndent(list, "", "  ")
 	os.WriteFile(groupFile, data, 0664)
 }
+
 
 // LoadPinManager loads both Pins and Groups
 func LoadPinManager() {
@@ -302,3 +312,4 @@ func LoadPinManager() {
 		}
 	}
 }
+*/

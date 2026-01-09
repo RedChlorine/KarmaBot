@@ -5,6 +5,7 @@ import (
 	"log" // Used for logging errors and information to the console
 	"os"  // Used to access environment variables
 	"os/signal"
+	"strconv"
 	"syscall"
 
 	"karmabotv02/handlers"
@@ -43,12 +44,25 @@ func main() { // Main function is the entry point of the program
 		handlers.LogError("Warning: Could not load keywords file: %v", err)
 	}
 
-	// --- LOAD PIN MESSAGE DATA --- //
-	// Loads pin message data from handlers/maps/mapsPinMessages.json
-	handlers.LoadPinManager()
+	/*
+		**********************************
+		        --- DEPRICATED ---
+		***********************************
+		// --- LOAD PIN MESSAGE DATA --- //
+		//Loads pin message data from handlers/maps/mapsPinMessages.json
 
-	// --- DEBUG --- //
-	bot.Debug = false
+		handlers.LoadPinManager()
+		***********************************
+	*/
+
+	// --- DEBUG MODE | Default:False --- //
+	debugString := os.Getenv("DEBUG")
+	isDebug, err := strconv.ParseBool(debugString)
+	if err != nil {
+		// If invalid or empty - default to false
+		isDebug = false
+	}
+	bot.Debug = isDebug
 
 	// --- STARTUP NOTIFICATION --- //
 	handlers.LogInfo("🟢 KarmaBot is up and running!")
