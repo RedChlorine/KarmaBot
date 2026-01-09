@@ -86,8 +86,9 @@ func DBCreateTables() error {
 
 	// If the tables exist - return early
 	if exists {
-		LogError("⚠️ **WARNING: DATABASE DETECTED** ⚠️\n\nTables found. Table creation stopped...\n(If this is a migration, verify the DB_CONNECTION_STRING!")
-		return nil
+		err := fmt.Errorf("Database tables already exist | Table creation stopped...")
+		LogError("⚠️ **WARNING:\nDATABASE DETECTED** ⚠️\n\n%s \n\n(If this is a migration, verify the DB_CONNECTION_STRING!", err)
+		return err
 	}
 
 	// Create Tables
