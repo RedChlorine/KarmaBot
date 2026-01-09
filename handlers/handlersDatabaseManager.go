@@ -112,7 +112,7 @@ func DBCreateTables() error {
 func DBInitUserCache() {
 	rows, err := DB.Query("SELECT user_id, username FROM reputation")
 	if err != nil {
-		LogError("⚠️ WARNING: Failed to load user cache: %v", err)
+		LogError("⚠️ WARNING: Failed to load user cache: %v\n", err)
 		return
 	}
 	defer rows.Close()
@@ -155,7 +155,7 @@ func DBEnsureUserExists(userID int64, username string) {
 		`
 		_, err := DB.Exec(query, userID, username)
 		if err != nil {
-			LogError("Failed to register user %s: %v", username, err)
+			LogError("Failed to register user %s: \n%v", username, err)
 		}
 	}()
 }
