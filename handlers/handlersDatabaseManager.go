@@ -277,11 +277,25 @@ func DBFindUserID(username string) int64 {
 
 // --- SQL | KEYWORD HANDLERS --- //
 func DBAddKeyword(pattern string, isNegative bool, addedBy string) (int, error) {
+	// --- Check Duplicates --- //
+	var existingID int
+	checkQuery := "SELECT id FROM keywords WHERE pattern = $1 LIMIT 1"
+	err := DB.QueryRow(checkQuery, pattern).Scan(&existingID)
+
+	// If no error occurs, it means a row was found (the pattern exists)
+	if err == nil {
+		LogError("A user attempted to insert a duplicate pattern into the DB: '%s'\nExisting ID:# %d\n\n...Update to DB rejected.", pattern, existingID)
+
+		return 0, fmt.Errorf("\nThe keyword: '%s',already exists (ID #%d)", pattern, existingID)
+	}
+
+	// If it doesn't exist (sql.ErrNoRows), proceed with the insertion
 	var id int
-	err := DB.QueryRow(
-		`INSERT INTO keywords (pattern, is_negative, added_by)
-		VALUES ($1, $2, $3) RETURNING id`,
-		pattern, isNegative, addedBy).Scan(&id)
+	insertQuery := `
+		INSERT INTO keywords (pattern, is_negative, added_by)
+		VALUES ($1, $2, $3) RETURNING id`
+
+	err = DB.QueryRow(insertQuery, pattern, isNegative, addedBy).Scan(&id)
 	return id, err
 }
 
@@ -294,6 +308,7 @@ func DBDeleteKeyword(id int) error {
 	if count == 0 {
 		return fmt.Errorf("No keyword found with ID %d", id)
 	}
+	LogInfo("Keyword with ID %d deleted from database.", id)
 	return nil
 }
 
