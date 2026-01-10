@@ -260,12 +260,45 @@ func helperBroadcastAndPin(bot *tgbotapi.BotAPI, text, pinner string) string {
 }
 
 func helperGlobalUnpin(bot *tgbotapi.BotAPI) string {
-	groups, _ := DBGetKnownGroups()
-	for _, chatID := range groups {
-		// API Unpin All
-		bot.Request(tgbotapi.UnpinAllChatMessagesConfig{ChatID: chatID})
-		// DB Clear
-		DBUnpinAllInChat(chatID)
+	groups, err := DBGetKnownGroups()
+	if err != nil {
+		return "❌ DB Error getting groups during GLOBAL UNPIN operation."
 	}
-	return "🌍 Global Unpin Complete."
+	// !! - GOROUTINE -!! //
+	// Create channels to handel requests concurrently
+	jobs := make(chan int64, len(groups))
+	results := make(chan bool, len(groups))
+
+	// Worker function - starts 3 workers !!! DO NOT EXCEED TELEGRAM RATE LIMITS (30/s) !!!
+	for workerInstance := 1; workerInstance <= 3; workerInstance++ {
+		go func(id int) {
+			for chatID := range jobs {
+				// API Unpin All
+				_, err := bot.Request(tgbotapi.UnpinAllChatMessagesConfig{ChatID: chatID})
+
+				// We clear the DB regardless of API success.
+				// If the bot was kicked, we still want to remove the "ghost" pins from our DB.
+				DBUnpinAllInChat(chatID)
+
+				// Report success only if API call worked
+				results <- (err == nil)
+			}
+		}(workerInstance)
+	}
+
+	// Add jobs
+	for _, id := range groups {
+		jobs <- id
+	}
+	close(jobs)
+
+	// Collect results
+	successCount := 0
+	for i := 0; i < len(groups); i++ {
+		if <-results {
+			successCount++
+		}
+	}
+
+	return fmt.Sprintf("🌍 Global Unpin Complete.\n✅ Success: %d groups\n⚠️ Failed/Skipped: %d groups", successCount, len(groups)-successCount)
 }
