@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
+	"time"
 
 	"karmabotv02/handlers"
 
@@ -106,7 +107,7 @@ func main() { // Main function is the entry point of the program
 					if shouldReplyToMessage {
 						msg.ReplyToMessageID = update.Message.MessageID
 					}
-					bot.Send(msg)
+					safeSend(bot, msg) // Send the reply safely - do not use bot.Send directly!
 				}
 			}
 		}
@@ -124,4 +125,32 @@ func main() { // Main function is the entry point of the program
 	handlers.LogInfo("🛑 Shutdown signal received. Cleaning up...")
 	handlers.CloseDB() // <--- Close the DB connection!
 	handlers.LogInfo("👋 Goodbye!")
+}
+
+// !!! CRITICAL HELPERS !!!  - DO NOT DELETE //
+// Helper to send messages safely with 429 handling
+func safeSend(bot *tgbotapi.BotAPI, msg tgbotapi.MessageConfig) {
+	if msg.Text == "" {
+		return
+	}
+
+	// Try to send
+	_, err := bot.Send(msg)
+	if err != nil {
+		// Check if it is a Rate Limit Error (429)
+		if err.Error() == "Too Many Requests: retry after" {
+			// (Note: The actual error string might vary, usually contains "retry after")
+
+			// Log it
+			handlers.LogError("⚠️ Hit Rate Limit! Sleeping for 2 seconds...")
+
+			// FORCE SLEEP - This saves your IP
+			time.Sleep(2 * time.Second)
+
+			// Retry once (optional)
+			bot.Send(msg)
+		} else {
+			handlers.LogError("❌ Error sending message: %v", err)
+		}
+	}
 }
