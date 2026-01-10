@@ -12,8 +12,12 @@ import (
 var (
 	// Global bot instance for handlers package
 	botInstance *tgbotapi.BotAPI
+
 	// ID of the channel to send logs to
 	logChannelID int64
+
+	// "Mailbox" (channel) for log messages - holds 100 pending logs
+	logQueue = make(chan string, 100)
 )
 
 // Initialises the logger with the bot instance and loads the channel ID
@@ -29,13 +33,39 @@ func InitLogHandler(bot *tgbotapi.BotAPI) {
 			log.Printf("⚠️ WARNING: Could not parse LOG_CHANNEL_ID from .env: %v", err)
 		} else {
 			log.Printf("[INFO] ✅ Log Handler Initialized! Sending logs to Channel ID: %d", logChannelID)
+
+			// !!- GOROUTINE -!! //
+			// process log messages if channel ID is valid
+			go startLogWorker()
 		}
 	} else {
 		log.Println("ℹ️ NOTE: LOG_CHANNEL_ID is not set in .env. Logs will only print to console.")
 	}
 }
 
-// Sends an error messahe to the log channel and prints to the console
+// Goroutine worker to process log messages from the queue - Background processing
+func startLogWorker() {
+	for text := range logQueue {
+		if botInstance != nil && logChannelID != 0 {
+			message := tgbotapi.NewMessage(logChannelID, text)
+			botInstance.Send(message)
+		}
+	}
+}
+
+// Gouroutine-safe helper to send log messages asynchronously
+func helperSendToLogChannelAsync(text string) {
+	// Non-Blocking send to log queue
+	select {
+	case logQueue <- text:
+		// Successfully sent to log queue
+	default:
+		// Log queue is full, drop the log message to avoid blocking
+		log.Println("⚠️ WARNING: Log Queue FULL!! Dropping log message to console only:", text)
+	}
+}
+
+// Sends an error message to the log channel and prints to the console
 // Usage: handlers.LogError("Something went wrong: %v", err)
 func LogError(format string, args ...any) {
 	message := fmt.Sprintf(format, args...)
