@@ -220,19 +220,43 @@ func helperBroadcastAndPin(bot *tgbotapi.BotAPI, text, pinner string) string {
 		return "❌ DB Error getting groups."
 	}
 
-	count := 0
-	for _, chatID := range groups {
-		// 1. Send
-		msg, err := bot.Send(tgbotapi.NewMessage(chatID, text))
-		if err == nil {
-			// 2. Pin
-			bot.Request(tgbotapi.PinChatMessageConfig{ChatID: chatID, MessageID: msg.MessageID})
-			// 3. Save
-			DBPinMessage(chatID, msg.MessageID, pinner, text)
-			count++
+	// !! - GOROUTINE -!! //
+	// Create channels to handel requests concurrently
+	jobs := make(chan int64, len(groups))
+	results := make(chan bool, len(groups))
+
+	// Worker function - starts 3 workers !!! DO NOT EXCEED TELEGRAM RATE LIMITS (30/s) !!!
+	for workerInstance := 1; workerInstance <= 3; workerInstance++ {
+		go func(id int) {
+			for chatID := range jobs {
+				// Send
+				msg, err := bot.Send(tgbotapi.NewMessage(chatID, text))
+				if err == nil {
+					// Pin
+					bot.Request(tgbotapi.PinChatMessageConfig{ChatID: chatID, MessageID: msg.MessageID})
+					// Save to DB
+					DBPinMessage(chatID, msg.MessageID, pinner, text)
+					results <- true
+				} else {
+					results <- false
+				}
+			}
+		}(workerInstance)
+
+		// Add jobs
+		for _, id := range groups {
+			jobs <- id
+		}
+		close(jobs)
+	}
+	// Collect results
+	successCount := 0
+	for i := 0; i < len(groups); i++ {
+		if <-results {
+			successCount++
 		}
 	}
-	return fmt.Sprintf("📢 Broadcasted & Pinned to %d groups!", count)
+	return fmt.Sprintf("📢 Broadcast complete! Sent to %d/%d groups.", successCount, len(groups))
 }
 
 func helperGlobalUnpin(bot *tgbotapi.BotAPI) string {
