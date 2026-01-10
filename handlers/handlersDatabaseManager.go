@@ -84,6 +84,7 @@ func DBCreateTables() error {
 		return fmt.Errorf("❌ ERROR: Failed to check if reputation table exists %v", err)
 	}
 
+	// !!! -CRITICAL TO PREVENT DATA LOSS- !!!
 	// If the tables exist - return early
 	if exists {
 		err := fmt.Errorf("Database tables already exist | Table creation stopped...")
@@ -304,7 +305,7 @@ func DBListKeywords() string {
 	defer rows.Close()
 
 	var sb strings.Builder
-	sb.WriteString("📜 **Current Keywords** (Newest First):\n")
+	sb.WriteString("📜 **Current Keywords** (Newest First):\n\n")
 
 	for rows.Next() {
 		var id int
@@ -312,11 +313,11 @@ func DBListKeywords() string {
 		var isNeg bool
 		rows.Scan(&id, &pattern, &isNeg, &addedBy)
 
-		tag := "✅"
+		tag := "✅ [POS]"
 		if isNeg {
 			tag = "⛔ [NEG]"
 		}
-		fmt.Fprintf(&sb, "#%d %s: \"%s\" (by @%s)\n", id, tag, pattern, addedBy)
+		fmt.Fprintf(&sb, "#%d  %s : \"%s\" (by @%s)\n", id, tag, pattern, addedBy)
 	}
 	return sb.String()
 }

@@ -135,3 +135,10 @@ func formatName(user *tgbotapi.User) string {
 	}
 	return user.FirstName
 }
+
+func helperEnsureAtPrefix(name string) string {
+	if strings.HasPrefix(name, "@") {
+		return name
+	}
+	return "@" + name
+}
