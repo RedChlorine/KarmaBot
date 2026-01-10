@@ -148,7 +148,7 @@ func safeSend(bot *tgbotapi.BotAPI, msg tgbotapi.MessageConfig) {
 			time.Sleep(2 * time.Second)
 
 			// Retry once (optional)
-			bot.Send(msg)
+			//bot.Send(msg)
 		} else {
 			handlers.LogError("❌ Error sending message: %v", err)
 		}
