@@ -172,5 +172,5 @@ func ensureHeadAdmin() {
 		log.Panic(err, "\n[!! PANIC !!]:\nFAILED TO ENSURE HEAD ADMIN EXISTS IN DB")
 	}
 
-	log.Printf("[INFO]✅ Head Admin ensured: %s (%d) with role: %s", headAdminUsername, headAdminIDInt, headAdminRole)
+	log.Printf("[INFO] ✅ Head Admin ensured: %s (%d) with role: %s", headAdminUsername, headAdminIDInt, headAdminRole)
 }
