@@ -214,7 +214,7 @@ func CheckCommands(bot *tgbotapi.BotAPI, update *tgbotapi.Update) string {
 			LogError("❌ DB Error: Unable to promote user %d to %s: %v", targetID, role, err)
 			return fmt.Sprintf("❌ DB Error: Could not promote to admin or superadmin: %v", err)
 		}
-		LogInfo("✅ User %s promoted to %s.\nUser ID: %d", targetName, role, userID)
+		LogInfo("✅ User %s promoted to %s - User ID: %d", targetName, role, userID)
 		return fmt.Sprintf("✅ User %s promoted to %s.", targetName, role)
 
 	case "/removeadmin":
@@ -230,7 +230,7 @@ func CheckCommands(bot *tgbotapi.BotAPI, update *tgbotapi.Update) string {
 			LogError("❌ DB Error: Unable to demote user %d from admin - Manual removal from DB recommended!: %v", targetID, err)
 			return fmt.Sprintf("❌ DB Error: Could not demote from admin: %v", err)
 		}
-		LogInfo("✅ User %s demoted from admin.\nUser ID: %d", targetName, userID)
+		LogInfo("✅ User %s demoted from admin - User ID: %d", targetName, userID)
 		return fmt.Sprintf("✅ User %s demoted from admin.", targetName)
 
 	case "/listadmins":
