@@ -38,14 +38,7 @@ func main() { // Main function is the entry point of the program
 	handlers.InitDB()
 
 	// --- ENSURE ADMIN EXISTS --- //
-	headAdminID := os.Getenv("HEAD_ADMIN_ID")
-	headAdminIDInt, err := strconv.Atoi(headAdminID)
-	if err != nil {
-		log.Panic(err, "\n[!! PANIC !!]:\nHEAD ADMIN ID NOT A VALID INTEGER - Check Config.env")
-	}
-	headAdminUsername := os.Getenv("HEAD_ADMIN_USERNAME")
-	headAdminRole := os.Getenv("HEAD_ADMIN_ROLE")
-	handlers.DBAddAdmin(int64(headAdminIDInt), headAdminUsername, headAdminRole)
+	ensureHeadAdmin()
 
 	// --- INITIALISE DB CACHE --- //
 	handlers.DBInitUserCache()
@@ -163,4 +156,21 @@ func safeSend(bot *tgbotapi.BotAPI, msg tgbotapi.MessageConfig) {
 			handlers.LogError("❌ Error sending message: %v", err)
 		}
 	}
+}
+
+func ensureHeadAdmin() {
+	headAdminID := os.Getenv("HEAD_ADMIN_ID")
+	headAdminIDInt, err := strconv.Atoi(headAdminID)
+	if err != nil {
+		log.Panic(err, "\n[!! PANIC !!]:\nHEAD ADMIN ID NOT A VALID INTEGER - Check Config.env")
+	}
+
+	headAdminUsername := os.Getenv("HEAD_ADMIN_USERNAME")
+	headAdminRole := os.Getenv("HEAD_ADMIN_ROLE")
+	err = handlers.DBAddAdmin(int64(headAdminIDInt), headAdminUsername, headAdminRole)
+	if err != nil {
+		log.Panic(err, "\n[!! PANIC !!]:\nFAILED TO ENSURE HEAD ADMIN EXISTS IN DB")
+	}
+
+	log.Printf("✅ Head Admin ensured: %s (%d) with role: %s", headAdminUsername, headAdminIDInt, headAdminRole)
 }
