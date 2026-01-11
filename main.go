@@ -50,7 +50,7 @@ func main() { // Main function is the entry point of the program
 	// --- INITIALISE DB CACHE --- //
 	handlers.DBInitUserCache()
 
-	// Loads the keywords from disk from handlers/maps/mapsKeywords.json
+	// Loads the keywords from DB
 	if err := handlers.ReloadKeywords(); err != nil {
 		handlers.LogError("Warning: Could not load keywords file: %v", err)
 	}
