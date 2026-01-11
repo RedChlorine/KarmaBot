@@ -242,13 +242,14 @@ func helperBroadcastAndPin(bot *tgbotapi.BotAPI, text, pinner string) string {
 				}
 			}
 		}(workerInstance)
-
-		// Add jobs
-		for _, id := range groups {
-			jobs <- id
-		}
-		close(jobs)
 	}
+
+	// Add jobs
+	for _, id := range groups {
+		jobs <- id
+	}
+	close(jobs)
+
 	// Collect results
 	successCount := 0
 	for i := 0; i < len(groups); i++ {
