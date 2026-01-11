@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
+	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -17,7 +19,11 @@ type Keyword struct {
 	AddedBy    string         `json:"added_by"`
 }
 
-// Memory Cache
+// GLOBAL cooldown map: ChatID -> LastTimeReputationWasGiven
+// sync.Map is safe for concurrent use
+var reputationCooldowns sync.Map
+
+// GLOBAL Memory Cache
 var keywordCache []Keyword
 
 // ReloadKeywords fetches from DB and compiles regex (Called on Startup & Add/Delete)
@@ -53,6 +59,7 @@ func CheckMessageKeywords(update *tgbotapi.Update) string {
 
 	// 1. Check for Keyword Match
 	var matchedKeyword Keyword
+	var response string
 	matched := false
 
 	for _, kw := range keywordCache {
@@ -112,7 +119,13 @@ func CheckMessageKeywords(update *tgbotapi.Update) string {
 	// 5. Apply Reputation Change
 	var newRep int
 	var err error
-	var response string
+
+	//  --- CHECK COOLDOWN --- //
+	// CheckCooldown returns TRUE if the group is allowed to trigger reputation
+	// It enforces a 3-second cooldown per group.
+	if !CheckReputationCooldown(update.Message.Chat.ID) {
+		return "" // In Cooldown - ignore spam
+	}
 
 	if matchedKeyword.IsNegative {
 		newRep, err = DBDecreaseReputation(targetID, targetName)
@@ -141,4 +154,37 @@ func helperEnsureAtPrefix(name string) string {
 		return name
 	}
 	return "@" + name
+}
+
+// --- REPUTATION COOLDOWN LOGIC --- | IMPORTANT FOR ANTI-SPAM
+// CheckReputationCooldown checks and enforces a cooldown for reputation triggers per chat
+func CheckReputationCooldown(chatID int64) bool {
+	const cooldownDuration = 3 * time.Second
+
+	now := time.Now()
+	lastTime, ok := reputationCooldowns.Load(chatID)
+
+	if ok {
+		lastTriggerTime := lastTime.(time.Time)
+		if now.Sub(lastTriggerTime) < cooldownDuration {
+			// Still in cooldown
+			return false
+		}
+	}
+	// Update last trigger time and allow
+	reputationCooldowns.Store(chatID, now)
+	return true
+
+	/*
+		* HOW TO USE THIS FUNCTION *:
+		 if reputationTriggered
+		 {
+			if !CheckReputationCooldown(update.Message.Chat.ID)
+			{
+				return "" // In Cooldown - ignore spam
+			}
+				// Proceed with reputation logic
+		 }
+	*/
+
 }
