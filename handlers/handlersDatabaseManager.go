@@ -456,7 +456,7 @@ func DBListAdmins() string {
 		var username, role string
 		var userID int64
 		rows.Scan(&userID, &username, &role)
-		fmt.Fprintf(&sb, "%s | %s | ID: %d\n", username, role, userID)
+		fmt.Fprintf(&sb, "%s | %s | ID: %v\n\n", username, role, userID)
 	}
 	return sb.String()
 }
