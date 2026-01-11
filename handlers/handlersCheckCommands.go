@@ -193,7 +193,53 @@ func CheckCommands(bot *tgbotapi.BotAPI, update *tgbotapi.Update) string {
 		if err := DBCreateTables(); err != nil {
 			return fmt.Sprintf("❌ DB Setup Error: %v", err)
 		}
+		LogInfo("✅ Database tables created/verified successfully!")
 		return "✅ Database tables created/verified successfully!"
+
+	case "/addadmin", "/addsuper":
+		if !CheckAdminRightsSuper(userID) {
+			return "⛔ Super SuperAdmin only."
+		}
+		targetID, targetName := helperResolveTarget(update, parts)
+		if targetID == 0 {
+			return "⚠️ Could not find user. Reply to them or use their username."
+		}
+
+		role := "admin"
+		if command == "/addsuper" {
+			role = "superadmin"
+		}
+
+		if err := DBAddAdmin(targetID, targetName, role); err != nil {
+			LogError("❌ DB Error: Unable to promote user %d to %s: %v", targetID, role, err)
+			return fmt.Sprintf("❌ DB Error: Could not promote to admin or superadmin: %v", err)
+		}
+		LogInfo("✅ User %s promoted to %s.", targetName, role)
+		return fmt.Sprintf("✅ User %s promoted to %s.", targetName, role)
+
+	case "/removeadmin":
+		if !CheckAdminRightsSuper(userID) {
+			return "⛔ Super Admin only."
+		}
+		targetID, targetName := helperResolveTarget(update, parts)
+		if targetID == 0 {
+			return "⚠️ Could not find user. Reply to them or use their username."
+		}
+
+		if err := DBRemoveAdmin(targetID); err != nil {
+			LogError("❌ DB Error: Unable to demote user %d from admin - Manual removal from DB recommended!: %v", targetID, err)
+			return fmt.Sprintf("❌ DB Error: Could not demote from admin: %v", err)
+		}
+		LogInfo("✅ User %s demoted from admin.", targetName)
+		return fmt.Sprintf("✅ User %s demoted from admin.", targetName)
+
+	case "/listadmins":
+		/* -- Made available to all users --
+		if !CheckAdminRights(userID) {
+			return "⛔ Admin only."
+		}
+		*/
+		return DBListAdmins()
 	}
 
 	return ""
