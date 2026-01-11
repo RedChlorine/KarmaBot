@@ -303,7 +303,7 @@ func helperGlobalUnpin(bot *tgbotapi.BotAPI) string {
 			successCount++
 		}
 	}
-	LogInfo("BROADCAST MESSAGE SENT:\n🌍 Global Unpin Complete.\n✅ Success: %d groups\n⚠️ Failed/Skipped: %d groups", successCount, len(groups)-successCount)
+	LogInfo("GLOBAL UNPIN:\n🌍 Global Unpin Complete.\n✅ Success: %d groups\n⚠️ Failed/Skipped: %d groups", successCount, len(groups)-successCount)
 
 	return fmt.Sprintf("🌍 Global Unpin Complete.\n✅ Success: %d groups\n⚠️ Failed/Skipped: %d groups", successCount, len(groups)-successCount)
 }
