@@ -37,6 +37,16 @@ func main() { // Main function is the entry point of the program
 	// --- INITIALISE DATABASE --- //
 	handlers.InitDB()
 
+	// --- ENSURE ADMIN EXISTS --- //
+	headAdminID := os.Getenv("HEAD_ADMIN_ID")
+	headAdminIDInt, err := strconv.Atoi(headAdminID)
+	if err != nil {
+		log.Panic(err, "\n[!! PANIC !!]:\nHEAD ADMIN ID NOT A VALID INTEGER - Check Config.env")
+	}
+	headAdminUsername := os.Getenv("HEAD_ADMIN_USERNAME")
+	headAdminRole := os.Getenv("HEAD_ADMIN_ROLE")
+	handlers.DBAddAdmin(int64(headAdminIDInt), headAdminUsername, headAdminRole)
+
 	// --- INITIALISE DB CACHE --- //
 	handlers.DBInitUserCache()
 
