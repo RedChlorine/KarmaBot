@@ -257,6 +257,9 @@ func helperBroadcastAndPin(bot *tgbotapi.BotAPI, text, pinner string) string {
 			successCount++
 		}
 	}
+
+	LogInfo("BROADCAST MESSAGE SENT:\nSent to %d/%d groups.", successCount, len(groups))
+
 	return fmt.Sprintf("📢 Broadcast complete! Sent to %d/%d groups.", successCount, len(groups))
 }
 
@@ -300,6 +303,7 @@ func helperGlobalUnpin(bot *tgbotapi.BotAPI) string {
 			successCount++
 		}
 	}
+	LogInfo("BROADCAST MESSAGE SENT:\n🌍 Global Unpin Complete.\n✅ Success: %d groups\n⚠️ Failed/Skipped: %d groups", successCount, len(groups)-successCount)
 
 	return fmt.Sprintf("🌍 Global Unpin Complete.\n✅ Success: %d groups\n⚠️ Failed/Skipped: %d groups", successCount, len(groups)-successCount)
 }
