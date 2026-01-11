@@ -426,3 +426,37 @@ func DBListPins(chatID int64) string {
 	}
 	return sb.String()
 }
+
+// --- SQL | ADMIN HANDLERS --- //
+func DBAddAdmin(userID int64, username, role string) error {
+	_, err := DB.Exec(`
+		INSERT INTO bot_admins (user_id, username, role)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (user_id)
+		DO UPDATE SET role = $3;`,
+		userID, helperEnsureAtPrefix(username), role)
+	return err
+}
+
+func DBRemoveAdmin(userID int64) error {
+	_, err := DB.Exec("DELETE FROM bot_admins WHERE user_id = $1", userID)
+	return err
+}
+
+func DBListAdmins() string {
+	rows, err := DB.Query("SELECT user_id, username, role FROM bot_admins ORDER BY role DESC")
+	if err != nil {
+		return "Error fetching admin list."
+	}
+	defer rows.Close()
+
+	var sb strings.Builder
+	sb.WriteString("🛡️ **Bot Admins** 🛡️\n\n")
+	for rows.Next() {
+		var username, role string
+		var userID int64
+		rows.Scan(&userID, &username, &role)
+		fmt.Fprintf(&sb, "%s | %s | ID: %d\n", username, role, userID)
+	}
+	return sb.String()
+}
