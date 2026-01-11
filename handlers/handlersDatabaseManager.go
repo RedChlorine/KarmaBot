@@ -115,6 +115,11 @@ func DBCreateTables() error {
 		`CREATE TABLE IF NOT EXISTS pin_groups (
 			chat_id BIGINT PRIMARY KEY
 		);`,
+		`CREATE TABLE IF NOT EXISTS bot_admins(
+			user_id BIGINT PRIMARY KEY,
+			username TEXT, 
+			role TEXT NOT NULL DEFAULT 'admin' -- 'admin' or 'superadmin'
+		);`,
 	}
 
 	for _, query := range queries {

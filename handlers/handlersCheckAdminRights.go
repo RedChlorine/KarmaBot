@@ -1,70 +1,24 @@
 package handlers
 
-import (
-	"os"
-	"strconv"
-	"strings"
-)
-
+// Checks if a user is in the authorised list of admins for super-commands - checks DB for ID
 func CheckAdminRightsSuper(userID int64) bool {
-	// Gets ID string from Env.env
-	superAdminEnv := os.Getenv("SUPER_ADMIN_ID")
-
-	if superAdminEnv == "" {
-		LogError("WARNING: no SUPER_ADMIN_IDs found in the environment variables doc - Admin level commands are inaccessible:")
+	var role string
+	err := DB.QueryRow("SELECT role FROM bot_admins WHERE user_id = $1", userID).Scan(&role)
+	if err != nil {
+		LogError("❌ DB ERROR: Could not parse superadmin rights for %d from the DB: %v", userID, err)
 		return false
 	}
-
-	// Split env strings by commas
-	adminIDs := strings.Split(superAdminEnv, ",")
-
-	// Loop through list of IDs to check if userID matches adminID
-	for _, superAdminIdString := range adminIDs {
-		// Strip whitespace
-		superAdminIdString = strings.TrimSpace(superAdminIdString)
-
-		// Convert env ID to int64 - (store in var, from base10, to int64)
-		TrimmedSuperAdminIdString, err := strconv.ParseInt(superAdminIdString, 10, 64)
-		if err != nil {
-			LogError("WARNING: Invalid Admin ID in Env.env: %s", superAdminIdString)
-			continue
-		}
-
-		if TrimmedSuperAdminIdString == userID {
-			return true
-		}
-	}
-	return false
+	return role == "superadmin"
 }
 
-// Checks if a user is in the authorised list of admins for admin-commands - checks Env.env for ID
+// Checks if a user is in the authorised list of admins for admin-commands - checks DB for ID
 func CheckAdminRights(userID int64) bool {
-	// Gets ID string from Env.env
-	adminEnv := os.Getenv("ADMIN_ID")
-
-	if adminEnv == "" {
-		LogError("WARNING: no ADMIN_IDs found in the environment variables doc - Admin level commands are inaccessible:")
+	var role string
+	err := DB.QueryRow("SELECT role FROM bot_admins WHERE user_id = $1", userID).Scan(&role)
+	if err != nil {
+		LogError("❌ DB ERROR: Could not parse admin rights for %d from the DB: %v", userID, err)
 		return false
 	}
-
-	// Split env strings by commas
-	adminIDs := strings.Split(adminEnv, ",")
-
-	// Loop through list of IDs to check if userID matches adminID
-	for _, adminIdString := range adminIDs {
-		// Strip whitespace
-		adminIdString = strings.TrimSpace(adminIdString)
-
-		// Convert env ID to int64 - (store in var, from base10, to int64)
-		TrimmedAdminIdString, err := strconv.ParseInt(adminIdString, 10, 64)
-		if err != nil {
-			LogError("WARNING: Invalid Admin ID in Env.env: %s", adminIdString)
-			continue
-		}
-
-		if TrimmedAdminIdString == userID {
-			return true
-		}
-	}
-	return false
+	// Superadmins are also admins
+	return role == "admin" || role == "superadmin"
 }
