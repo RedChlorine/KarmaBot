@@ -14,6 +14,7 @@ func CheckAdminRightsSuper(userID int64) bool {
 
 	if err != nil {
 		log.Printf("❌ DB ERROR: Could not parse superadmin rights for %d from the DB - FALLBACK to Config.env: %v", userID, err)
+		LogError("⚠️⚠️⚠️ FALLBACK TRIGGERED ⚠️⚠️⚠️: Could not parse superadmin rights for %d from the DB - FALLBACK to Config.env", userID)
 
 		// --- FALLBACK CHECK: Config File (prevent lockout) --- //
 		headAdminIDStr := os.Getenv("HEAD_ADMIN_ID")
@@ -32,7 +33,6 @@ func CheckAdminRightsSuper(userID int64) bool {
 				}()
 				return role == "superadmin" // Authorized via Config File
 			}
-
 		}
 	}
 	return role == "superadmin"
