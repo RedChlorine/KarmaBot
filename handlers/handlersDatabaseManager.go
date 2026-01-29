@@ -37,7 +37,7 @@ func InitDB() {
 
 	// Verify connection
 	if err = DB.Ping(); err != nil {
-		LogError("❌ FATAL: Could not reach DB container. Is Podman running? \nError: %v", err)
+		LogError("❌ FATAL: Could not reach DB container. Is the Database running? \nError: %v", err)
 		os.Exit(1)
 	}
 
