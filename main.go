@@ -31,7 +31,7 @@ func main() { // Main function is the entry point of the program
 	}
 
 	// --- INITIALISE LOGGING --- //
-	// SETUP: sets global bot pointer and loads loggin channel ID
+	// SETUP: sets global bot pointer and loads logging channel ID
 	handlers.InitLogHandler(bot)
 
 	// --- INITIALISE DATABASE --- //
