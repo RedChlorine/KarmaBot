@@ -22,7 +22,7 @@ func InitDB() {
 
 	if connStr == "" {
 		// LOG AND CRASH - CRITICAL
-		LogError("❌ FATAL: DB_CONNECTION_STRING is not set in Env.env")
+		LogError("❌ FATAL: DB_CONNECTION_STRING is not set in Config.env")
 		os.Exit(1)
 	}
 
