@@ -2,6 +2,7 @@ package main // Defines the main package for your executable application
 
 // Import required packages for the program
 import (
+	"flag"
 	"log" // Used for logging errors and information to the console
 	"os"  // Used to access environment variables
 	"os/signal"
@@ -12,16 +13,20 @@ import (
 	"karmabotv02/handlers"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5" // Provides the Telegram Bot API bindings for Go
-	"github.com/joho/godotenv"                                    // Loads environment variables from a file
+	"github.com/joho/godotenv"
 )
 
-func main() { // Main function is the entry point of the program
-	// Loads key/value pairs from .env into system environment variables
-	err := godotenv.Load("Config.env")
-	if err != nil {
-		// If there is an error loading .env, log the error and exit the program
-		log.Fatal("Error loading Config.env file")
+func setupDB() {
+	log.Println("Setup DB")
+	if err := handlers.DBCreateTables(); err != nil {
+		handlers.LogError("❌ DB Setup Error: %v", err)
 	}
+	handlers.LogInfo("✅ Database tables created/verified successfully!")
+}
+
+func runBot() {
+	log.Println("Starting Bot")
+	// Main function is the entry point of the program
 
 	// Retrieves the bot token from the loaded environment variables
 	bot, err := tgbotapi.NewBotAPI(os.Getenv("BOT_TOKEN"))
@@ -31,7 +36,7 @@ func main() { // Main function is the entry point of the program
 	}
 
 	// --- INITIALISE LOGGING --- //
-	// SETUP: sets global bot pointer and loads loggin channel ID
+	// SETUP: sets global bot pointer and loads logging channel ID
 	handlers.InitLogHandler(bot)
 
 	// --- INITIALISE DATABASE --- //
@@ -127,6 +132,25 @@ func main() { // Main function is the entry point of the program
 	// 5. Cleanup & Exit
 	handlers.LogInfo("🛑 Shutdown signal received. Cleaning up...")
 	handlers.CloseDB() // <--- Close the DB connection!
+}
+
+func main() {
+	// Flags for command-line arguments
+	setupDBFlag := flag.Bool("setup-db", false, "Setup the database")
+	flag.Parse()
+
+	// Loads key/value pairs from .env into system environment variables
+	err := godotenv.Load("Config.env")
+	if err != nil {
+		// If there is an error loading .env, log the error and exit the program
+		log.Fatal("Error loading Config.env file")
+	}
+
+	if *setupDBFlag {
+		setupDB()
+	} else {
+		runBot()
+	}
 	handlers.LogInfo("👋 Goodbye!")
 }
 
