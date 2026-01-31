@@ -18,6 +18,7 @@ import (
 
 func setupDB() {
 	log.Println("Setup DB")
+	handlers.InitDB()
 	if err := handlers.DBCreateTables(); err != nil {
 		handlers.LogError("❌ DB Setup Error: %v", err)
 	}
