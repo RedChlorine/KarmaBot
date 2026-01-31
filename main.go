@@ -135,6 +135,7 @@ func runBot() {
 }
 
 func main() {
+	// Flags for command-line arguments
 	setupDBFlag := flag.Bool("setup-db", false, "Setup the database")
 	flag.Parse()
 
