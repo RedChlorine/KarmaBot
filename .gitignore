@@ -1,3 +1,4 @@
 *.env
 *.dev
+*.idea
 handlers/maps/*.json
