@@ -46,3 +46,27 @@ This version ("v2") has been upgraded from a file-based system to a fully contai
 ```bash
 git clone [https://github.com/RedChlorine/karmabotv02.git](https://github.com/RedChlorine/karmabotv02.git)
 cd karmabotv02
+```
+
+### 2. Run the DB
+```bash
+Podman compose up
+run the container from the podman ui
+```
+
+### 3. Run the bot
+```bash
+open a terminal
+go mod tidy
+go run main.go
+```
+
+### 4. Confirmation Log
+* **Logs**
+* The bot will log the following:
+* [INFO] ✅ Log Handler Initialized! Sending logs to Channel ID: -1003600147866
+* [INFO] ✅ Database Connected & Tables Found.
+* [INFO] ✅ Head Admin ensured: @LamentConfiguration0 (1088768470) with role: superadmin
+* [INFO] 🧠 User Cache Loaded: 6 users in memory.
+* [INFO] 🔄 Keywords Reloaded! Total Active: 8
+* [INFO] 🟢 KarmaBot is up and running!
