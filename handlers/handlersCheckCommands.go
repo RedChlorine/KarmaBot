@@ -37,7 +37,14 @@ func CheckCommands(bot *tgbotapi.BotAPI, update *tgbotapi.Update) string {
 	switch command {
 	// --- BASICS ---
 	case "/start":
-		return "Welcome to KarmaBot! 🤖"
+		return "✨ **Welcome to KarmaBot!** 🤖 ✨\n\n" +
+			"I'm here to help you manage reputation and keep the vibes high! 📈\n\n" +
+			"**Quick Start Guide:**\n\n" +
+			"❓ /help - See all the cool things I can do\n" +
+			"🏆 /top - View the Top 10 Leaderboard\n" +
+			"👤 /checkrep - See your current reputation.\n\n" +
+			"Let's get to work! 🚀"
+
 	case "/help":
 		if CheckAdminRights(userID) {
 			return "Available commands:\n/start - Displays the Welcome message\n/help  - Displays this message\n/top - View the Top 10 Leaderboard 🏆\n/ping - Checks if the bot is alive\n\n/addkeyword - Adds keywords that the bot looks for\n/addbadword - Adds  negative keywords that the bot decrements rep for\n/deletekeyword - Removes a keyword by its ID#\n/listkeywords - Shows the current list of word the bot looks for\n\n/checkrep - Displays the current user's reputation\n/setrep - Forces a user's rep to be set to the value you provide\n/resetrep - Resets a user's reputation to zero\n/pin - Pins a message in the group that it's replied to\n/listpins - Lets you check the list of current pins and their IDs\n/pinall - Broadcasts the message in all groups and pins it\n/unpin - Unpins a message in the group by its ID\n/unpinall - Globally unpins all pinned messages - !CAUTION!\n\n/addadmin - Promotes a user to admin - (superadmin required)\n/addsuper - Promotes a user to superadmin\n/removeadmin - Demotes a user from admin\n/listadmins - Lists all admins and superadmins\n"
