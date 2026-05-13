@@ -125,7 +125,7 @@ ADMIN_USERNAME=your_admin_username
 
 ## 📝 License
 
-Specify your license here (e.g., MIT, Apache 2.0, etc.)
+Currently Unlicenced, please contact the owner for Licencing Rights
 
 ## 👤 Author
 
