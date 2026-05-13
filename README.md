@@ -90,8 +90,8 @@ KarmaBot uses environment variables for configuration. Create a `.env` file in t
 
 ```env
 TELEGRAM_BOT_TOKEN=your_bot_token_here
-DATABASE_URL=postgres://user:password@localhost:5432/karmabot
-LOG_CHANNEL_ID=-1001234567890
+DATABASE_URL=your_DB_url_here
+LOG_CHANNEL_ID=your_log_channel_id_here
 ADMIN_USERNAME=your_admin_username
 ```
 
