@@ -1,72 +1,140 @@
-# KarmaBot (v2 SQL Edition)
+# KarmaBot
 
-KarmaBot is a robust Telegram bot built in **Go** that manages user reputation, tracks keywords, and handles message pinning across groups.
+A powerful Telegram bot written in Go that manages user reputation systems, tracks keywords, and handles message pinning across groups.
 
-This version ("v2") has been upgraded from a file-based system to a fully containerized **PostgreSQL** database architecture, ensuring data persistence, scalability, and performance.
+## Overview
 
-## 🚀 Features
+KarmaBot is a robust, containerized Telegram bot that brings sophisticated reputation management to Telegram groups. Built with Go and PostgreSQL, it provides real-time user tracking, dynamic keyword management, and group-wide messaging capabilities.
 
-* **Reputation System:**
-    * Users gain (`+1`) or lose (`-1`) reputation based on specific keywords (e.g., "thanks", "bad bot").
-    * Prevents users from voting for themselves (anti-farming).
-    * "Passive Registration" system automatically learns users when they speak.
-* **Keyword Management:**
-    * Admins can add/delete regex-based keywords dynamically.
-    * Supports both positive (reputation increase) and negative (reputation decrease) keywords.
-* **Pin Manager:**
-    * Pin messages in the local chat.
-    * **Broadcast & Pin:** Send a message to *all* registered groups and pin it instantly (`/pinall`).
-    * Global Unpin: Clear pins from all groups with one command.
-* **Database & Caching:**
-    * Powered by **PostgreSQL** running in a Podman/Docker container.
-    * Includes **pgAdmin** for easy database management.
-    * **In-Memory User Cache:** Drastically reduces database load by caching known users in RAM.
-* **Logging:**
-    * Critical errors and startup events are logged to a dedicated Telegram channel.
+## ✨ Features
+
+### Reputation System
+- **Vote-based Karma**: Users gain or lose reputation through community votes
+- **Keyword Triggers**: Automatic reputation changes based on configurable keywords
+- **Anti-Farming**: Prevents users from voting for themselves
+- **Passive Registration**: Automatically learns users when they participate in chat
+
+### Keyword Management
+- **Admin Controls**: Add and delete keywords dynamically
+- **Regex Support**: Use powerful regex patterns for keyword matching
+- **Positive & Negative Keywords**: Configure keywords that increase or decrease reputation
+- **Real-time Updates**: Changes take effect immediately
+
+### Message Broadcasting
+- **Pin Messages**: Pin messages within individual chats
+- **Broadcast to All**: Send and pin messages across all registered groups (`/pinall`)
+- **Global Unpin**: Remove pins from all groups simultaneously
+
+### Performance & Reliability
+- **PostgreSQL Database**: Persistent data storage with full ACID compliance
+- **In-Memory Caching**: Optimized user cache reduces database queries
+- **Docker/Podman**: Fully containerized for easy deployment
+- **Logging**: Critical events logged to dedicated Telegram channel
 
 ## 🛠️ Tech Stack
 
-* **Language:** Go (Golang) 1.25+
-* **Database:** PostgreSQL 15 (Alpine)
-* **Containerization:** Podman (or Docker)
-* **Libraries:**
-    * `go-telegram-bot-api/telegram-bot-api/v5`
-    * `lib/pq` (Postgres Driver)
-    * `joho/godotenv`
+| Component | Version |
+|-----------|---------|
+| **Language** | Go 1.25+ |
+| **Database** | PostgreSQL 15 |
+| **Container Runtime** | Docker / Podman |
+| **Telegram API** | go-telegram-bot-api/v5 |
 
-## 📋 Prerequisites
+## 📦 Dependencies
 
-1.  **Go:** Installed on your machine ([Download](https://go.dev/dl/)).
-2.  **Podman** (or Docker Desktop): Required to run the database.
-3.  **Podman Compose** (or Docker Compose): To handle the multi-container setup.
+- `go-telegram-bot-api/telegram-bot-api/v5` - Telegram bot API wrapper
+- `lib/pq` - PostgreSQL driver
+- `joho/godotenv` - Environment configuration
 
-## ⚙️ Installation & Setup
+## 🚀 Getting Started
 
-### 1. Clone the Repository
-```bash
-git clone [https://github.com/RedChlorine/karmabotv02.git](https://github.com/RedChlorine/karmabotv02.git)
-cd karmabotv02
+### Prerequisites
+
+- **Go 1.25+** - [Download](https://go.dev/dl/)
+- **Docker** or **Podman** - Container runtime
+- **Docker Compose** or **Podman Compose** - Multi-container orchestration
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/RedChlorine/KarmaBot.git
+   cd KarmaBot
+   ```
+
+2. **Start the database**
+   ```bash
+   podman-compose up -d
+   # or use docker-compose up -d
+   ```
+
+3. **Install dependencies**
+   ```bash
+   go mod tidy
+   ```
+
+4. **Configure environment**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your Telegram bot token and database credentials
+   ```
+
+5. **Run the bot**
+   ```bash
+   go run main.go
+   ```
+
+## 🔧 Configuration
+
+KarmaBot uses environment variables for configuration. Create a `.env` file in the project root:
+
+```env
+TELEGRAM_BOT_TOKEN=your_bot_token_here
+DATABASE_URL=postgres://user:password@localhost:5432/karmabot
+LOG_CHANNEL_ID=-1001234567890
+ADMIN_USERNAME=your_admin_username
 ```
 
-### 2. Run the DB
-```bash
-Podman compose up
-run the container from the podman ui
-```
+## 📚 Usage
 
-### 3. Run the bot
-```bash
-open a terminal
-go mod tidy
-go run main.go
-```
+### Bot Commands
 
-### 4. Confirmation Log
-* **Logs**
-* The bot will log the following:
-* [INFO] ✅ Log Handler Initialized! Sending logs to Channel ID: -1003600147866
-* [INFO] ✅ Database Connected & Tables Found.
-* [INFO] ✅ Head Admin ensured: @LamentConfiguration0 (1088768470) with role: superadmin
-* [INFO] 🧠 User Cache Loaded: 6 users in memory.
-* [INFO] 🔄 Keywords Reloaded! Total Active: 8
-* [INFO] 🟢 KarmaBot is up and running!
+- `/start` - Initialize the bot
+- `/karma @user` - Check a user's reputation
+- `/addkeyword` - Add a new keyword (admin only)
+- `/delkeyword` - Remove a keyword (admin only)
+- `/pin` - Pin the current message
+- `/pinall` - Broadcast and pin a message to all groups
+- `/unpinall` - Remove pins from all groups (admin only)
+
+## 🐛 Troubleshooting
+
+### Database Connection Issues
+- Verify PostgreSQL container is running: `podman ps`
+- Check database credentials in `.env`
+- Ensure port 5432 is not in use
+
+### Bot Not Responding
+- Confirm bot token is valid
+- Check Telegram channel ID in logs configuration
+- Review bot logs for errors: `go run main.go`
+
+### Cache Issues
+- Clear user cache by restarting the bot
+- Monitor cache performance in logs
+
+## 📝 License
+
+Specify your license here (e.g., MIT, Apache 2.0, etc.)
+
+## 👤 Author
+
+[RedChlorine](https://github.com/RedChlorine)
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit pull requests or open issues for bugs and feature requests.
+
+---
+
+**Note**: This bot requires proper Telegram bot setup and group admin permissions to function fully.
